@@ -1,15 +1,16 @@
 extern mod std;
 
-use std::option::{Option, Some, None};
-use std::io::net::udp::UdpSocket;
-use std::io::net::ip::SocketAddr;
 use std::from_str::FromStr;
+use std::io::net::ip::SocketAddr;
+use std::io::net::udp::UdpSocket;
+use std::num;
+use std::option::{Option, Some, None};
 use std::str;
 
 
 static MAX_PACKET_SIZE: uint = 1024;
 
-#[deriving(ToStr)]
+
 enum MetricKind {
     Counter(f64), // sample rate
     Gauge,
@@ -19,7 +20,6 @@ enum MetricKind {
 }
 
 
-#[deriving(ToStr)]
 struct Metric {
     kind: MetricKind,
     name: ~str,
@@ -27,8 +27,10 @@ struct Metric {
 }
 
 
-
+/// Attempt to parse an input string into a Metric struct. Bad inputs will
+/// simply return a None.
 fn parse_metric(line: &str) -> Option<Metric> {
+    // Pointer to position in line
     let mut idx = 0u;
 
     let name = match line.find(':') {
@@ -37,7 +39,8 @@ fn parse_metric(line: &str) -> Option<Metric> {
 
         Some(pos) => {
             idx += pos + 1;
-            line.slice_to(pos)
+
+            line.slice_to(pos).to_owned()
         }
     };
 
@@ -56,28 +59,38 @@ fn parse_metric(line: &str) -> Option<Metric> {
         }
     };
 
-    // FIXME: This is horrible! Doesn't actually work as intended.
-    let kind = match line.slice(idx, idx + 2) {
-        "c\0" => Counter(1.0),
+    let end_idx = num::min(idx + 3, line.len());
+
+    let kind = match line.slice(idx, end_idx) {
+        "c" => Counter(1.0),
         "ms" => Timer,
-        "h\0" => Histogram,
-        "m\0" => Meter,
-        "g\0" => Gauge,
+        "h" => Histogram,
+        "m" => Meter,
+        "g" => Gauge,
+        // Sampled counter
+        "c|@" => {
+            let sample: f64 = match FromStr::from_str(line.slice_from(end_idx + 1)) {
+                Some(x) => x,
+                None => return None
+            };
+
+            Counter(sample)
+        }
 
         // Unknown type
         _ => return None
     };
 
-    Some(Metric {kind: kind, name: name.to_owned(), value: value})
+    Some(Metric {kind: kind, name: name, value: value})
 }
 
 
-fn handle_message(buf: ~[u8]) {
+/// Handle a buffer containing the contents of a single UDP packet received by
+/// the server.
+fn handle_message(buf: &[u8]) {
 
     let metric: Metric = match str::from_utf8_opt(buf) {
         Some(string) => {
-
-            println!("---> {}", string);
 
             match parse_metric(string) {
                 Some(m) => m,
@@ -92,9 +105,10 @@ fn handle_message(buf: ~[u8]) {
     };
 
     // FIXME: This feels wrong. Very wrong.
-    let (name, value) = (metric.name.clone(), metric.value);
+    let name: &str = metric.name;
+    let value: f64 = metric.value;
 
-    println!("{} => {}", name, value);
+    println!("→ {} => {}", name, value);
 
     match metric {
         Metric { kind: Gauge, _ } => {
@@ -126,11 +140,13 @@ fn main() {
         match server.recvfrom(buf) {
 
             Some((nread, _)) => {
+                // Messages this large probably are bad in some way.
                 if nread == MAX_PACKET_SIZE {
                     warn!("Max packet size exceeded.");
                 }
 
-                handle_message(buf);
+                // Use the slice to strip out trailing \0 characters
+                handle_message(buf.slice_to(nread));
             },
             None => ()
         }

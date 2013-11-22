@@ -29,6 +29,10 @@ struct Metric {
 
 /// Attempt to parse an input string into a Metric struct. Bad inputs will
 /// simply return a None.
+///
+/// Valid message formats are:
+///    <str:metric_name>:<f64:value>|<str:type>
+///    <str:metric_name>:<f64:value>|c|@<f64:sample_rate>
 fn parse_metric(line: &str) -> Option<Metric> {
     // Pointer to position in line
     let mut idx = 0u;

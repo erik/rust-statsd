@@ -58,32 +58,31 @@ impl FromStr for Metric {
         let mut idx = 0u;
 
         let name = match line.find(':') {
-            // Badly formatted, bail.
-            None => return None,
-
             Some(pos) => {
                 idx += pos + 1;
 
                 line.slice_to(pos).to_owned()
-            }
+            },
+
+            None => return None
         };
 
         let value: f64 = match line.slice_from(idx).find('|') {
-            // Bail
-            None => return None,
-
             Some(pos) => {
-                let val: f64 = match FromStr::from_str(line.slice(idx, idx + pos)) {
-                    Some(x) => x,
-                    None => return None
-                };
+                let val: Option<f64> = FromStr::from_str(line.slice(idx, idx + pos));
                 idx += pos + 1;
 
-                val
-            }
+                match val {
+                    Some(x) => x,
+                    None    => return None
+                }
+            },
+
+            None => return None
         };
 
         let end_idx = num::min(idx + 3, line.len());
+
         let kind = match line.slice(idx, end_idx) {
             "c" => Counter(1.0),
             "ms" => Timer,

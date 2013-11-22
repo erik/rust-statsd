@@ -109,20 +109,19 @@ impl FromStr for Metric {
 }
 
 
-type Bucket = HashMap<~str, f64>;
-struct State {
-    counters:   Bucket,
-    gauges:     Bucket,
-    histograms: Bucket,
-    meters:     Bucket,
+struct Buckets {
+    counters:   HashMap<~str, f64>,
+    gauges:     HashMap<~str, f64>,
+    histograms: HashMap<~str, f64>,
+    meters:     HashMap<~str, f64>,
     timers:     HashMap<~str, ~[f64]>
 }
 
 
 #[deriving(ToStr)]
-impl State {
-    fn new() -> State {
-        State {
+impl Buckets {
+    fn new() -> Buckets {
+        Buckets {
             counters: HashMap::new(),
             gauges: HashMap::new(),
             histograms: HashMap::new(),
@@ -136,19 +135,9 @@ impl State {
             Gauge      => self.add_gauge(metric),
             Timer      => self.add_timer(metric),
             Counter(_) => self.add_counter(metric),
-            Histogram  => warn!("Histogram not implemented"),
-            Meter      => warn!("Meter not implemented")
+            Histogram  => self.add_histogram(metric),
+            Meter      => self.add_meter(metric)
         }
-    }
-
-    fn add_timer(&mut self, m: Metric) {
-        self.timers.insert_or_update_with(
-            m.name.clone(), ~[], |_, v| v.push(m.value)
-        );
-    }
-
-    fn add_gauge(&mut self, m: Metric) {
-        self.gauges.insert(m.name.clone(), m.value);
     }
 
     fn add_counter(&mut self, m: Metric) {
@@ -160,6 +149,24 @@ impl State {
         self.counters.insert_or_update_with(
             m.name.clone(), 0.0, |_, v| *v += m.value * (1.0 / sample_rate));
     }
+    fn add_gauge(&mut self, m: Metric) {
+        self.gauges.insert(m.name.clone(), m.value);
+    }
+
+    fn add_timer(&mut self, m: Metric) {
+        self.timers.insert_or_update_with(
+            m.name.clone(), ~[], |_, v| v.push(m.value)
+        );
+    }
+
+    fn add_histogram(&mut self, m: Metric) {
+        warn!("Histogram not implemented: {}", m)
+    }
+
+    fn add_meter(&mut self, m: Metric) {
+        warn!("Meter not implemented: {}", m)
+    }
+
 }
 
 
@@ -182,7 +189,7 @@ fn handle_message(buf: &[u8]) -> Option<Metric> {
 fn main() {
     let socket: SocketAddr = FromStr::from_str("0.0.0.0:9991").unwrap();
     let mut server = UdpSocket::bind(socket).unwrap();
-    let mut state = State::new();
+    let mut buckets = Buckets::new();
 
     loop {
         let mut buf = ~[0u8, ..MAX_PACKET_SIZE];
@@ -198,7 +205,7 @@ fn main() {
                 // Use the slice to strip out trailing \0 characters
                 let metric = handle_message(buf.slice_to(nread));
                 if metric.is_some() {
-                    state.add_metric(metric.unwrap());
+                    buckets.add_metric(metric.unwrap());
                 }
             },
 

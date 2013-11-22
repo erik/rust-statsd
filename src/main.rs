@@ -1,6 +1,7 @@
 extern mod std;
 
 use std::hashmap::HashMap;
+use std::fmt;
 use std::from_str::FromStr;
 use std::io::net::ip::SocketAddr;
 use std::io::net::udp::UdpSocket;
@@ -21,21 +22,19 @@ enum MetricKind {
 }
 
 
-impl ToStr for MetricKind {
-    fn to_str(&self) -> ~str {
-        match *self {
-            Gauge      => ~"Gauge",
-            Timer      => ~"Timer",
-            Histogram  => ~"Histogram",
-            Meter      => ~"Meter",
-            Counter(s) => format!("Counter(s={})", s)
+impl fmt::Default for MetricKind {
+    fn fmt(k: &MetricKind, f: &mut fmt::Formatter) {
+        match *k {
+            Gauge      => write!(f.buf, "Gauge"),
+            Timer      => write!(f.buf, "Timer"),
+            Histogram  => write!(f.buf, "Histogram"),
+            Meter      => write!(f.buf, "Meter"),
+            Counter(s) => write!(f.buf, "Counter(s={})", s)
         }
     }
 }
 
 
-
-#[deriving(ToStr)]
 struct Metric {
     kind: MetricKind,
     name: ~str,
@@ -43,9 +42,69 @@ struct Metric {
 }
 
 
-impl Metric {
-    fn to_str(&self) -> ~str {
-        format!("{}({}) => {}", self.name, self.kind.to_str(), self.value)
+impl fmt::Default for Metric {
+    fn fmt(m: &Metric, f: &mut fmt::Formatter) {
+        write!(f.buf, "{}({}) => {}", m.name, m.kind, m.value)
+    }
+}
+
+impl FromStr for Metric {
+
+    /// Valid message formats are:
+    ///    <str:metric_name>:<f64:value>|<str:type>
+    ///    <str:metric_name>:<f64:value>|c|@<f64:sample_rate>
+    fn from_str(line: &str) -> Option<Metric> {
+        // Pointer to position in line
+        let mut idx = 0u;
+
+        let name = match line.find(':') {
+            // Badly formatted, bail.
+            None => return None,
+
+            Some(pos) => {
+                idx += pos + 1;
+
+                line.slice_to(pos).to_owned()
+            }
+        };
+
+        let value: f64 = match line.slice_from(idx).find('|') {
+            // Bail
+            None => return None,
+
+            Some(pos) => {
+                let val: f64 = match FromStr::from_str(line.slice(idx, idx + pos)) {
+                    Some(x) => x,
+                    None => return None
+                };
+                idx += pos + 1;
+
+                val
+            }
+        };
+
+        let end_idx = num::min(idx + 3, line.len());
+        let kind = match line.slice(idx, end_idx) {
+            "c" => Counter(1.0),
+            "ms" => Timer,
+            "h" => Histogram,
+            "m" => Meter,
+            "g" => Gauge,
+            // Sampled counter
+            "c|@" => {
+                let sample: f64 = match FromStr::from_str(line.slice_from(end_idx + 1)) {
+                    Some(x) => x,
+                    None => return None
+                };
+
+                Counter(sample)
+            },
+
+            // Unknown type
+            _ => return None
+        };
+
+        Some(Metric {kind: kind, name: name, value: value})
     }
 }
 
@@ -104,80 +163,26 @@ impl State {
 }
 
 
-/// Attempt to parse an input string into a Metric struct. Bad inputs will
-/// simply return a None.
-///
-/// Valid message formats are:
-///    <str:metric_name>:<f64:value>|<str:type>
-///    <str:metric_name>:<f64:value>|c|@<f64:sample_rate>
-fn parse_metric(line: &str) -> Option<Metric> {
-    // Pointer to position in line
-    let mut idx = 0u;
-
-    let name = match line.find(':') {
-        // Badly formatted, bail.
-        None => return None,
-
-        Some(pos) => {
-            idx += pos + 1;
-
-            line.slice_to(pos).to_owned()
-        }
-    };
-
-    let value: f64 = match line.slice_from(idx).find('|') {
-        // Bail
-        None => return None,
-
-        Some(pos) => {
-            let val: f64 = match FromStr::from_str(line.slice(idx, idx + pos)) {
-                Some(x) => x,
-                None => return None
-            };
-            idx += pos + 1;
-
-            val
-        }
-    };
-
-    let end_idx = num::min(idx + 3, line.len());
-    let kind = match line.slice(idx, end_idx) {
-        "c" => Counter(1.0),
-        "ms" => Timer,
-        "h" => Histogram,
-        "m" => Meter,
-        "g" => Gauge,
-        // Sampled counter
-        "c|@" => {
-            let sample: f64 = match FromStr::from_str(line.slice_from(end_idx + 1)) {
-                Some(x) => x,
-                None => return None
-            };
-
-            Counter(sample)
-        },
-
-        // Unknown type
-        _ => return None
-    };
-
-    Some(Metric {kind: kind, name: name, value: value})
-}
-
-
 /// Handle a buffer containing the contents of a single UDP packet received by
 /// the server.
 fn handle_message(buf: &[u8]) -> Option<Metric> {
-    str::from_utf8_opt(buf).and_then(|string| {
-        parse_metric(string)
-    })
+    match str::from_utf8_opt(buf).and_then(|s| FromStr::from_str(s)) {
+        Some(m) => {
+            println!("==> {}", m);
+            Some(m)
+        },
+        None => {
+            println!("==> Bad input");
+            None
+        }
+    }
 }
 
 
 fn main() {
     let socket: SocketAddr = FromStr::from_str("0.0.0.0:9991").unwrap();
     let mut server = UdpSocket::bind(socket).unwrap();
-    let mut state = ~State::new();
+    let mut state = State::new();
 
     loop {
         let mut buf = ~[0u8, ..MAX_PACKET_SIZE];

@@ -1,5 +1,6 @@
 extern mod std;
 
+use std::hashmap::HashMap;
 use std::from_str::FromStr;
 use std::io::net::ip::SocketAddr;
 use std::io::net::udp::UdpSocket;
@@ -20,10 +21,86 @@ enum MetricKind {
 }
 
 
+impl ToStr for MetricKind {
+    fn to_str(&self) -> ~str {
+        match *self {
+            Gauge      => ~"Gauge",
+            Timer      => ~"Timer",
+            Histogram  => ~"Histogram",
+            Meter      => ~"Meter",
+            Counter(s) => format!("Counter(s={})", s)
+        }
+    }
+}
+
+
+
+#[deriving(ToStr)]
 struct Metric {
     kind: MetricKind,
     name: ~str,
     value: f64
+}
+
+
+impl Metric {
+    fn to_str(&self) -> ~str {
+        format!("{}({}) => {}", self.name, self.kind.to_str(), self.value)
+    }
+}
+
+
+type Bucket = HashMap<~str, f64>;
+struct State {
+    counters:   Bucket,
+    gauges:     Bucket,
+    histograms: Bucket,
+    meters:     Bucket,
+    timers:     HashMap<~str, ~[f64]>
+}
+
+
+#[deriving(ToStr)]
+impl State {
+    fn new() -> State {
+        State {
+            counters: HashMap::new(),
+            gauges: HashMap::new(),
+            histograms: HashMap::new(),
+            meters: HashMap::new(),
+            timers: HashMap::new()
+        }
+    }
+
+    fn add_metric(&mut self, metric: Metric) {
+        match metric.kind {
+            Gauge      => self.add_gauge(metric),
+            Timer      => self.add_timer(metric),
+            Counter(_) => self.add_counter(metric),
+            Histogram  => warn!("Histogram not implemented"),
+            Meter      => warn!("Meter not implemented")
+        }
+    }
+
+    fn add_timer(&mut self, m: Metric) {
+        self.timers.insert_or_update_with(
+            m.name.clone(), ~[], |_, v| v.push(m.value)
+        );
+    }
+
+    fn add_gauge(&mut self, m: Metric) {
+        self.gauges.insert(m.name.clone(), m.value);
+    }
+
+    fn add_counter(&mut self, m: Metric) {
+        let sample_rate = match m.kind {
+            Counter(s) => s,
+            _ => fail!("fasd")
+        };
+
+        self.counters.insert_or_update_with(
+            m.name.clone(), 0.0, |_, v| *v += m.value * (1.0 / sample_rate));
+    }
 }
 
 
@@ -64,7 +141,6 @@ fn parse_metric(line: &str) -> Option<Metric> {
     };
 
     let end_idx = num::min(idx + 3, line.len());
-
     let kind = match line.slice(idx, end_idx) {
         "c" => Counter(1.0),
         "ms" => Timer,
@@ -79,7 +155,7 @@ fn parse_metric(line: &str) -> Option<Metric> {
             };
 
             Counter(sample)
-        }
+        },
 
         // Unknown type
         _ => return None
@@ -91,52 +167,17 @@ fn parse_metric(line: &str) -> Option<Metric> {
 
 /// Handle a buffer containing the contents of a single UDP packet received by
 /// the server.
-fn handle_message(buf: &[u8]) {
-
-    let metric: Metric = match str::from_utf8_opt(buf) {
-        Some(string) => {
-
-            match parse_metric(string) {
-                Some(m) => m,
-                None => return
-            }
-        },
-        // Just ignore badly formatted metrics
-        None => {
-            println!("bad format");
-            return
-        }
-    };
-
-    // FIXME: This feels wrong. Very wrong.
-    let name: &str = metric.name;
-    let value: f64 = metric.value;
-
-    println!("→ {} => {}", name, value);
-
-    match metric {
-        Metric { kind: Gauge, _ } => {
-            println!("gauge")
-        },
-        Metric { kind: Timer, _ } => {
-            println!("timer")
-        },
-        Metric { kind: Histogram, _ } => {
-            println!("histogram")
-        },
-        Metric { kind: Meter, _ } => {
-            println!("meter")
-        },
-        Metric { kind: Counter(s), _ } => {
-            println!("counter {}", s)
-        }
-    }
+fn handle_message(buf: &[u8]) -> Option<Metric> {
+    str::from_utf8_opt(buf).and_then(|string| {
+        parse_metric(string)
+    })
 }
 
 
 fn main() {
     let socket: SocketAddr = FromStr::from_str("0.0.0.0:9991").unwrap();
     let mut server = UdpSocket::bind(socket).unwrap();
+    let mut state = ~State::new();
 
     loop {
         let mut buf = ~[0u8, ..MAX_PACKET_SIZE];
@@ -150,8 +191,12 @@ fn main() {
                 }
 
                 // Use the slice to strip out trailing \0 characters
-                handle_message(buf.slice_to(nread));
+                let metric = handle_message(buf.slice_to(nread));
+                if metric.is_some() {
+                    state.add_metric(metric.unwrap());
+                }
             },
+
             None => ()
         }
     }

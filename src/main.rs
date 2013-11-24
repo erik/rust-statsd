@@ -1,8 +1,8 @@
 extern mod std;
 
-use std::select;
-use std::rt::comm::{Port, Chan, stream};
+use std::rt::comm::{Port, Chan, SharedChan, stream};
 use std::io::Timer;
+use std::io::buffered;
 use std::hashmap::HashMap;
 use std::fmt;
 use std::from_str::FromStr;
@@ -138,7 +138,7 @@ impl Buckets {
     fn flush(&mut self) {
     }
 
-    fn handle_management_cmd(&mut self, line: ~str) -> ~str {
+    fn handle_management_cmd(&mut self, line: &str) -> ~str {
         let mut words = line.word_iter();
 
         match words.next().unwrap_or("") {
@@ -209,12 +209,22 @@ fn handle_message(buf: &[u8]) -> Option<Metric> {
 }
 
 
+enum Event {
+    FlushTimer,
+    UdpMessage(~[u8]),
+    TcpMessage(~tcp::TcpStream)
+
+}
+
+
 fn main() {
     let mut buckets = Buckets::new();
 
-    let (udp_port, udp_chan): (Port<~[u8]>, Chan<~[u8]>) = stream();
+    let (event_port, event_chan_): (Port<~Event>, Chan<~Event>) = stream();
+    let event_chan = SharedChan::new(event_chan_);
 
     // UDP server loop
+    let udp_chan = event_chan.clone();
     do spawn {
         let addr: SocketAddr = FromStr::from_str("0.0.0.0:9991").unwrap();
         let mut socket = UdpSocket::bind(addr).unwrap();
@@ -229,71 +239,68 @@ fn main() {
 
                 // Use the slice to strip out trailing \0 characters
                 let msg = buf.slice_to(nread).to_owned();
-                udp_chan.send(msg);
+                udp_chan.send(~UdpMessage(msg));
             });
         }
     }
 
-    // XXX: The ~[u8] is only to appease the type system, and is almost certainly
-    // wrong. Only empty vectors are sent.
-    let (flush_port, flush_chan): (Port<~[u8]>, Chan<~[u8]>) = stream();
-
     // Flush timer loop
+    let flush_chan = event_chan.clone();
     do spawn {
         let mut timer = Timer::new().unwrap();
         let periodic = timer.periodic(FLUSH_INTERVAL_MS);
 
         loop {
             periodic.recv();
-            flush_chan.send(~[]);
+            flush_chan.send(~FlushTimer);
         }
     }
 
-    let (mgmt_port, mgmt_chan): (Port<~[u8]>, Chan<~[u8]>) = stream();
-
     // Management server loop
+    let mgmt_chan = event_chan.clone();
     do spawn {
         let addr: SocketAddr = FromStr::from_str("0.0.0.0:8126").unwrap();
         let listener = tcp::TcpListener::bind(addr).unwrap();
         let mut acceptor = listener.listen();
 
-        for ref mut stream in acceptor.incoming() {
-            let input = stream.read_to_end();
-            mgmt_chan.send(input);
+        for stream in acceptor.incoming() {
+            stream.map(|stream| {
+                mgmt_chan.send(~TcpMessage(~stream));
+            });
         }
     }
 
-    let mut ports = ~[udp_port, flush_port, mgmt_port];
-
+    // XXX: Handle broken pipe.
     loop {
-        match select::select(ports) {
+        match *event_port.recv() {
             // UDP message received
-            0 => {
-                let msg = ports[0].recv();
-
+            UdpMessage(msg) => {
                 handle_message(msg).map(|metric| {
                     buckets.add_metric(metric);
                 });
             },
 
             // Flush timeout
-            1 => {
-                ports[1].recv();
+            FlushTimer => {
                 println!("flush");
                 buckets.flush();
             },
 
             // Management server
-            2 => {
-                let msg = ports[2].recv();
+            TcpMessage(s) => {
+                let mut stream = buffered::BufferedStream::new(*s);
 
-                str::from_utf8_opt(msg).map(|line| {
-                    buckets.handle_management_cmd(line);
-                });
-            },
-
-            _ => fail!("This shouldn't happen")
+                loop {
+                    match stream.read_line() {
+                        Some(line) => {
+                            let resp = buckets.handle_management_cmd(line);
+                            stream.write(resp.as_bytes());
+                            stream.flush();
+                        },
+                        None => { break; }
+                    }
+                }
+            }
         }
     }
-
 }

@@ -6,8 +6,10 @@ use std::io::Timer;
 use std::hashmap::HashMap;
 use std::fmt;
 use std::from_str::FromStr;
+use std::io::{Listener, Acceptor};
 use std::io::net::ip::SocketAddr;
 use std::io::net::udp::UdpSocket;
+use std::io::net::tcp;
 use std::num;
 use std::option::{Option, Some, None};
 use std::str;
@@ -133,7 +135,21 @@ impl Buckets {
         }
     }
 
-    fn flush(&self) -> () {
+    fn flush(&mut self) {
+    }
+
+    fn handle_management_cmd(&mut self, line: ~str) -> ~str {
+        let mut words = line.word_iter();
+
+        match words.next().unwrap_or("") {
+            "delcounters" => ~"",
+            "deltimers" => ~"",
+            "gauges" => ~"",
+            "health" => ~"",
+            "stats" => ~"",
+            "timers" => ~"",
+            x => format!("ERROR: Unknown command: {}", x)
+        }
     }
 
     fn add_metric(&mut self, metric: Metric) {
@@ -149,7 +165,7 @@ impl Buckets {
     fn add_counter(&mut self, m: Metric) {
         let sample_rate = match m.kind {
             Counter(s) => s,
-            _ => fail!("fasd")
+            _ => fail!("expected counter")
         };
 
         self.counters.insert_or_update_with(
@@ -176,7 +192,8 @@ impl Buckets {
 }
 
 
-/// Handle a buffer containing the contents of a single UDP packet received by
+/// FIXME: this function's name doesn't correspond to what it actually does.
+/// Handle a buffer containing the contents of a single packet received by
 /// the server.
 fn handle_message(buf: &[u8]) -> Option<Metric> {
     match str::from_utf8_opt(buf).and_then(|s| FromStr::from_str(s)) {
@@ -199,12 +216,12 @@ fn main() {
 
     // UDP server loop
     do spawn {
-        let socket: SocketAddr = FromStr::from_str("0.0.0.0:9991").unwrap();
-        let mut server = UdpSocket::bind(socket).unwrap();
+        let addr: SocketAddr = FromStr::from_str("0.0.0.0:9991").unwrap();
+        let mut socket = UdpSocket::bind(addr).unwrap();
         let mut buf = [0u8, ..MAX_PACKET_SIZE];
 
         loop {
-            server.recvfrom(buf).map(|(nread, _)| {
+            socket.recvfrom(buf).map(|(nread, _)| {
                 // Messages this large probably are bad in some way.
                 if nread == MAX_PACKET_SIZE {
                     warn!("Max packet size exceeded.");
@@ -232,9 +249,21 @@ fn main() {
         }
     }
 
-    // TODO: management server loop
+    let (mgmt_port, mgmt_chan): (Port<~[u8]>, Chan<~[u8]>) = stream();
 
-    let mut ports = ~[udp_port, flush_port];
+    // Management server loop
+    do spawn {
+        let addr: SocketAddr = FromStr::from_str("0.0.0.0:8126").unwrap();
+        let listener = tcp::TcpListener::bind(addr).unwrap();
+        let mut acceptor = listener.listen();
+
+        for ref mut stream in acceptor.incoming() {
+            let input = stream.read_to_end();
+            mgmt_chan.send(input);
+        }
+    }
+
+    let mut ports = ~[udp_port, flush_port, mgmt_port];
 
     loop {
         match select::select(ports) {
@@ -254,7 +283,16 @@ fn main() {
                 buckets.flush();
             },
 
-            _ => ()
+            // Management server
+            2 => {
+                let msg = ports[2].recv();
+
+                str::from_utf8_opt(msg).map(|line| {
+                    buckets.handle_management_cmd(line);
+                });
+            },
+
+            _ => fail!("This shouldn't happen")
         }
     }
 

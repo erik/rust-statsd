@@ -1,5 +1,8 @@
 extern mod std;
 
+use std::select;
+use std::rt::comm::{Port, Chan, stream};
+use std::io::Timer;
 use std::hashmap::HashMap;
 use std::fmt;
 use std::from_str::FromStr;
@@ -10,6 +13,7 @@ use std::option::{Option, Some, None};
 use std::str;
 
 
+static FLUSH_INTERVAL_MS: u64 = 10000;
 static MAX_PACKET_SIZE: uint = 1024;
 
 
@@ -129,6 +133,9 @@ impl Buckets {
         }
     }
 
+    fn flush(&self) -> () {
+    }
+
     fn add_metric(&mut self, metric: Metric) {
         match metric.kind {
             Gauge      => self.add_gauge(metric),
@@ -186,29 +193,69 @@ fn handle_message(buf: &[u8]) -> Option<Metric> {
 
 
 fn main() {
-    let socket: SocketAddr = FromStr::from_str("0.0.0.0:9991").unwrap();
-    let mut server = UdpSocket::bind(socket).unwrap();
     let mut buckets = Buckets::new();
 
-    loop {
-        let mut buf = ~[0u8, ..MAX_PACKET_SIZE];
+    let (udp_port, udp_chan): (Port<~[u8]>, Chan<~[u8]>) = stream();
 
-        match server.recvfrom(buf) {
+    // UDP server loop
+    do spawn {
+        let socket: SocketAddr = FromStr::from_str("0.0.0.0:9991").unwrap();
+        let mut server = UdpSocket::bind(socket).unwrap();
+        let mut buf = [0u8, ..MAX_PACKET_SIZE];
 
-            Some((nread, _)) => {
+        loop {
+            server.recvfrom(buf).map(|(nread, _)| {
                 // Messages this large probably are bad in some way.
                 if nread == MAX_PACKET_SIZE {
                     warn!("Max packet size exceeded.");
                 }
 
                 // Use the slice to strip out trailing \0 characters
-                let metric = handle_message(buf.slice_to(nread));
-                if metric.is_some() {
-                    buckets.add_metric(metric.unwrap());
-                }
-            },
-
-            None => ()
+                let msg = buf.slice_to(nread).to_owned();
+                udp_chan.send(msg);
+            });
         }
     }
+
+    // XXX: The ~[u8] is only to appease the type system, and is almost certainly
+    // wrong. Only empty vectors are sent.
+    let (flush_port, flush_chan): (Port<~[u8]>, Chan<~[u8]>) = stream();
+
+    // Flush timer loop
+    do spawn {
+        let mut timer = Timer::new().unwrap();
+        let periodic = timer.periodic(FLUSH_INTERVAL_MS);
+
+        loop {
+            periodic.recv();
+            flush_chan.send(~[]);
+        }
+    }
+
+    // TODO: management server loop
+
+    let mut ports = ~[udp_port, flush_port];
+
+    loop {
+        match select::select(ports) {
+            // UDP message received
+            0 => {
+                let msg = ports[0].recv();
+
+                handle_message(msg).map(|metric| {
+                    buckets.add_metric(metric);
+                });
+            },
+
+            // Flush timeout
+            1 => {
+                ports[1].recv();
+                println!("flush");
+                buckets.flush();
+            },
+
+            _ => ()
+        }
+    }
+
 }

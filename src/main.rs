@@ -287,6 +287,8 @@ fn main() {
             },
 
             // Management server
+            // FIXME: This means that any open TCP connection will block other
+            //        incoming UDP messages.
             TcpMessage(s) => {
                 let mut stream = buffered::BufferedStream::new(*s);
 

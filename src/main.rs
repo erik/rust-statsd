@@ -1,18 +1,22 @@
 extern mod std;
+extern mod extra;
 
-use std::rt::comm::{Port, Chan, SharedChan, stream};
-use std::io::Timer;
-use std::io::buffered;
-use std::hashmap::HashMap;
 use std::fmt;
 use std::from_str::FromStr;
-use std::io::{Listener, Acceptor};
+use std::hashmap::HashMap;
+use std::io::Timer;
+use std::io::buffered;
 use std::io::net::ip::SocketAddr;
-use std::io::net::udp::UdpSocket;
 use std::io::net::tcp;
+use std::io::net::udp::UdpSocket;
+use std::io::{Listener, Acceptor};
 use std::num;
 use std::option::{Option, Some, None};
+use std::rt::comm::{Port, Chan, SharedChan, stream};
 use std::str;
+
+use extra::arc::RWArc;
+//use extra::stats::Stats;
 
 
 static FLUSH_INTERVAL_MS: u64 = 10000;
@@ -209,16 +213,16 @@ fn handle_message(buf: &[u8]) -> Option<Metric> {
 }
 
 
-enum Event {
-    FlushTimer,
-    UdpMessage(~[u8]),
-    TcpMessage(~tcp::TcpStream)
-
-}
-
-
 fn main() {
-    let mut buckets = Buckets::new();
+
+    enum Event {
+        FlushTimer,
+        UdpMessage(~[u8]),
+        TcpMessage(~tcp::TcpStream)
+    }
+
+    let mut _buckets = Buckets::new();
+    let shared_buckets = extra::arc::MutexArc::new(_buckets);
 
     let (event_port, event_chan_): (Port<~Event>, Chan<~Event>) = stream();
     let event_chan = SharedChan::new(event_chan_);
@@ -272,30 +276,32 @@ fn main() {
 
     // XXX: Handle broken pipe.
     loop {
+        let clone = shared_buckets.clone();
+
         match *event_port.recv() {
             // UDP message received
-            UdpMessage(msg) => {
-                handle_message(msg).map(|metric| {
-                    buckets.add_metric(metric);
-                });
+            UdpMessage(buf) => do clone.access |buckets| {
+                println!("recv");
+                str::from_utf8_opt(buf)
+                    .and_then(|string| FromStr::from_str(string))
+                    .map(|metric| buckets.add_metric(metric));
             },
 
             // Flush timeout
-            FlushTimer => {
+            FlushTimer => do clone.access |buckets| {
                 println!("flush");
                 buckets.flush();
             },
 
             // Management server
-            // FIXME: This means that any open TCP connection will block other
-            //        incoming UDP messages.
-            TcpMessage(s) => {
+            TcpMessage(s) => do spawn {
                 let mut stream = buffered::BufferedStream::new(*s);
-
                 loop {
                     match stream.read_line() {
-                        Some(line) => {
+                        Some(line) => do clone.access |buckets| {
+
                             let resp = buckets.handle_management_cmd(line);
+
                             stream.write(resp.as_bytes());
                             stream.flush();
                         },

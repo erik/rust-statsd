@@ -11,7 +11,9 @@ extern mod extra;
 
 pub mod metric;
 pub mod buckets;
+pub mod client;
 
+// XXX: This feels like the wrong way of doing this.
 pub mod server {
     pub mod main;
 }

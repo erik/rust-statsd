@@ -15,7 +15,8 @@ use std::option::{Option, Some, None};
 use std::rt::comm::{Port, Chan, SharedChan, stream};
 use std::str;
 
-use extra::arc::RWArc;
+use extra::time;
+use extra::arc::MutexArc;
 //use extra::stats::Stats;
 
 
@@ -123,11 +124,14 @@ struct Buckets {
     gauges:     HashMap<~str, f64>,
     histograms: HashMap<~str, f64>,
     meters:     HashMap<~str, f64>,
-    timers:     HashMap<~str, ~[f64]>
+    timers:     HashMap<~str, ~[f64]>,
+
+    server_start_time: time::Timespec,
+    last_message: time::Timespec,
+    bad_messages: uint
 }
 
 
-#[deriving(ToStr)]
 impl Buckets {
     fn new() -> Buckets {
         Buckets {
@@ -135,7 +139,11 @@ impl Buckets {
             gauges: HashMap::new(),
             histograms: HashMap::new(),
             meters: HashMap::new(),
-            timers: HashMap::new()
+            timers: HashMap::new(),
+
+            server_start_time: time::get_time(),
+            last_message: time::get_time(),
+            bad_messages: 0
         }
     }
 
@@ -157,42 +165,32 @@ impl Buckets {
     }
 
     fn add_metric(&mut self, metric: Metric) {
+        let key = metric.name.clone();
+        let val = metric.value;
+
         match metric.kind {
-            Gauge      => self.add_gauge(metric),
-            Timer      => self.add_timer(metric),
-            Counter(_) => self.add_counter(metric),
-            Histogram  => self.add_histogram(metric),
-            Meter      => self.add_meter(metric)
+            Gauge => {
+                self.gauges
+                    .insert(key, val);
+            },
+            Timer => {
+                self.timers
+                    .insert_or_update_with(key, ~[], |_, v| v.push(val));
+            },
+            Counter(sample_rate) => {
+                self.counters
+                    .insert_or_update_with(key, 0.0, |_, v| {
+                        *v += val * (1.0 / sample_rate)
+                    }
+                );
+            },
+
+            Histogram => warn!("Histogram not implemented: {}", metric),
+            Meter => warn!("Meter not implemented: {}", metric)
         }
-    }
 
-    fn add_counter(&mut self, m: Metric) {
-        let sample_rate = match m.kind {
-            Counter(s) => s,
-            _ => fail!("expected counter")
-        };
-
-        self.counters.insert_or_update_with(
-            m.name.clone(), 0.0, |_, v| *v += m.value * (1.0 / sample_rate));
+        self.last_message = time::get_time();
     }
-    fn add_gauge(&mut self, m: Metric) {
-        self.gauges.insert(m.name.clone(), m.value);
-    }
-
-    fn add_timer(&mut self, m: Metric) {
-        self.timers.insert_or_update_with(
-            m.name.clone(), ~[], |_, v| v.push(m.value)
-        );
-    }
-
-    fn add_histogram(&mut self, m: Metric) {
-        warn!("Histogram not implemented: {}", m)
-    }
-
-    fn add_meter(&mut self, m: Metric) {
-        warn!("Meter not implemented: {}", m)
-    }
-
 }
 
 

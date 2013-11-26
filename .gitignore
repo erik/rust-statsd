@@ -2,3 +2,4 @@ src/main
 .rust/
 bin/
 build/
+lib/

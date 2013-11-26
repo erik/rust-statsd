@@ -219,8 +219,8 @@ fn main() {
         TcpMessage(~tcp::TcpStream)
     }
 
-    let mut _buckets = Buckets::new();
-    let shared_buckets = extra::arc::MutexArc::new(_buckets);
+    let mut buckets = Buckets::new();
+    let buckets_arc = MutexArc::new(buckets);
 
     let (event_port, event_chan_): (Port<~Event>, Chan<~Event>) = stream();
     let event_chan = SharedChan::new(event_chan_);
@@ -272,22 +272,13 @@ fn main() {
         }
     }
 
-    // XXX: Handle broken pipe.
+    // XXX: Handle broken pipe task failure.
     loop {
-        let clone = shared_buckets.clone();
+        let buckets_mutex = buckets_arc.clone();
 
         match *event_port.recv() {
-            // UDP message received
-            UdpMessage(buf) => do clone.access |buckets| {
-                println!("recv");
-                str::from_utf8_opt(buf)
-                    .and_then(|string| FromStr::from_str(string))
-                    .map(|metric| buckets.add_metric(metric));
-            },
-
             // Flush timeout
-            FlushTimer => do clone.access |buckets| {
-                println!("flush");
+            FlushTimer => do mutex.access |buckets| {
                 buckets.flush();
             },
 
@@ -296,8 +287,7 @@ fn main() {
                 let mut stream = buffered::BufferedStream::new(*s);
                 loop {
                     match stream.read_line() {
-                        Some(line) => do clone.access |buckets| {
-
+                        Some(line) => do mutex.access |buckets| {
                             let resp = buckets.handle_management_cmd(line);
 
                             stream.write(resp.as_bytes());
@@ -306,7 +296,14 @@ fn main() {
                         None => { break; }
                     }
                 }
-            }
+            },
+
+            // UDP message received
+            UdpMessage(buf) => do mutex.access |buckets| {
+                str::from_utf8_opt(buf)
+                    .and_then(|string| FromStr::from_str(string))
+                    .map(|metric| buckets.add_metric(metric));
+            },
         }
     }
 }

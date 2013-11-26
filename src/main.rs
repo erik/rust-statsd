@@ -194,23 +194,6 @@ impl Buckets {
 }
 
 
-/// FIXME: this function's name doesn't correspond to what it actually does.
-/// Handle a buffer containing the contents of a single packet received by
-/// the server.
-fn handle_message(buf: &[u8]) -> Option<Metric> {
-    match str::from_utf8_opt(buf).and_then(|s| FromStr::from_str(s)) {
-        Some(m) => {
-            println!("==> {}", m);
-            Some(m)
-        },
-        None => {
-            println!("==> Bad input");
-            None
-        }
-    }
-}
-
-
 fn main() {
 
     enum Event {

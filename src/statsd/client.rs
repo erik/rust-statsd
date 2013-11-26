@@ -25,6 +25,14 @@ impl Client {
         Client { dest: dest, sock: sock }
     }
 
+    pub fn incr(&mut self, name: &str, sample_rate: f64) {
+        self.count_sampled(name, 1.0, sample_rate);
+    }
+
+    pub fn decr(&mut self, name: &str, sample_rate: f64) {
+        self.count_sampled(name, -1.0, sample_rate);
+    }
+
     pub fn count(&mut self, name: &str, value: f64) {
         self.count_sampled(name, value, 1.0);
     }

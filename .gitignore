@@ -3,3 +3,4 @@ src/main
 bin/
 build/
 lib/
+*.so

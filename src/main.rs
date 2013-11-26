@@ -148,6 +148,7 @@ impl Buckets {
     }
 
     fn flush(&mut self) {
+        // TODO: write me.
     }
 
     fn handle_management_cmd(&mut self, line: &str) -> ~str {
@@ -169,6 +170,13 @@ impl Buckets {
         let val = metric.value;
 
         match metric.kind {
+            Counter(sample_rate) => {
+                self.counters
+                    .insert_or_update_with(key, 0.0, |_, v| {
+                        *v += val * (1.0 / sample_rate)
+                    }
+                );
+            },
             Gauge => {
                 self.gauges
                     .insert(key, val);
@@ -177,14 +185,6 @@ impl Buckets {
                 self.timers
                     .insert_or_update_with(key, ~[], |_, v| v.push(val));
             },
-            Counter(sample_rate) => {
-                self.counters
-                    .insert_or_update_with(key, 0.0, |_, v| {
-                        *v += val * (1.0 / sample_rate)
-                    }
-                );
-            },
-
             Histogram => warn!("Histogram not implemented: {}", metric),
             Meter => warn!("Meter not implemented: {}", metric)
         }
@@ -272,6 +272,7 @@ fn main() {
                     let mut stream = buffered::BufferedStream::new(*s);
 
                     loop {
+                        // XXX: this will fail if non-utf8 characters are used
                         match stream.read_line() {
                             Some(line) => do buckets_arc.access |buckets| {
                                 let resp = buckets.handle_management_cmd(line);
@@ -289,7 +290,8 @@ fn main() {
             UdpMessage(buf) => do buckets_arc.access |buckets| {
                 str::from_utf8_opt(buf)
                     .and_then(|string| FromStr::from_str(string))
-                    .map(|metric| buckets.add_metric(metric));
+                    .map(|metric| buckets.add_metric(metric))
+                    .or_else(|| { buckets.bad_messages += 1; None });
             },
         }
     }

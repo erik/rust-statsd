@@ -219,7 +219,7 @@ fn main() {
         TcpMessage(~tcp::TcpStream)
     }
 
-    let mut buckets = Buckets::new();
+    let buckets = Buckets::new();
     let buckets_arc = MutexArc::new(buckets);
 
     let (event_port, event_chan_): (Port<~Event>, Chan<~Event>) = stream();
@@ -274,11 +274,12 @@ fn main() {
 
     // XXX: Handle broken pipe task failure.
     loop {
-        let buckets_mutex = buckets_arc.clone();
+        // XXX: It's probably terrible to realloc every iteration
+        let buckets_arc = buckets_arc.clone();
 
         match *event_port.recv() {
             // Flush timeout
-            FlushTimer => do mutex.access |buckets| {
+            FlushTimer => do buckets_arc.access |buckets| {
                 buckets.flush();
             },
 
@@ -287,7 +288,7 @@ fn main() {
                 let mut stream = buffered::BufferedStream::new(*s);
                 loop {
                     match stream.read_line() {
-                        Some(line) => do mutex.access |buckets| {
+                        Some(line) => do buckets_arc.access |buckets| {
                             let resp = buckets.handle_management_cmd(line);
 
                             stream.write(resp.as_bytes());
@@ -299,7 +300,7 @@ fn main() {
             },
 
             // UDP message received
-            UdpMessage(buf) => do mutex.access |buckets| {
+            UdpMessage(buf) => do buckets_arc.access |buckets| {
                 str::from_utf8_opt(buf)
                     .and_then(|string| FromStr::from_str(string))
                     .map(|metric| buckets.add_metric(metric));

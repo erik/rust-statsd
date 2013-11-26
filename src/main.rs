@@ -219,9 +219,6 @@ fn main() {
         TcpMessage(~tcp::TcpStream)
     }
 
-    let buckets = Buckets::new();
-    let buckets_arc = MutexArc::new(buckets);
-
     let (event_port, event_chan_): (Port<~Event>, Chan<~Event>) = stream();
     let event_chan = SharedChan::new(event_chan_);
 
@@ -272,11 +269,11 @@ fn main() {
         }
     }
 
+    let buckets = Buckets::new();
+    let buckets_arc = MutexArc::new(buckets);
+
     // XXX: Handle broken pipe task failure.
     loop {
-        // XXX: It's probably terrible to realloc every iteration
-        let buckets_arc = buckets_arc.clone();
-
         match *event_port.recv() {
             // Flush timeout
             FlushTimer => do buckets_arc.access |buckets| {
@@ -284,17 +281,23 @@ fn main() {
             },
 
             // Management server
-            TcpMessage(s) => do spawn {
-                let mut stream = buffered::BufferedStream::new(*s);
-                loop {
-                    match stream.read_line() {
-                        Some(line) => do buckets_arc.access |buckets| {
-                            let resp = buckets.handle_management_cmd(line);
+            TcpMessage(s) => {
+                // Clone the arc so the new task gets its own copy.
+                let buckets_arc = buckets_arc.clone();
 
-                            stream.write(resp.as_bytes());
-                            stream.flush();
-                        },
-                        None => { break; }
+                do spawn {
+                    let mut stream = buffered::BufferedStream::new(*s);
+
+                    loop {
+                        match stream.read_line() {
+                            Some(line) => do buckets_arc.access |buckets| {
+                                let resp = buckets.handle_management_cmd(line);
+
+                                stream.write(resp.as_bytes());
+                                stream.flush();
+                            },
+                            None => { break; }
+                        }
                     }
                 }
             },

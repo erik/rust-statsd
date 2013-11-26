@@ -1,7 +1,7 @@
 rust-statsd
 ===========
 
-It's a `statsd` server implementation. In Rust.
+It's a `statsd` server/client implementation. In Rust.
 
 License
 -------

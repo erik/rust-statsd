@@ -10,10 +10,10 @@ mkdirs:
 	mkdir -p $(BUILD_PATH)
 
 statsd-lib:
-	$(RUSTC) src/statsd/statsd.rc --out-dir $(BUILD_PATH)
+	$(RUSTC) src/lib.rs --out-dir $(BUILD_PATH)
 
 statsd-server:
-	$(RUSTC) src/statsd/statsd.rc --bin --out-dir $(BUILD_PATH)
+	$(RUSTC) src/lib.rs --bin --out-dir $(BUILD_PATH)
 
 clean:
 	rm -rf $(BUILD_PATH)

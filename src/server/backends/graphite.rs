@@ -16,8 +16,16 @@ pub struct Graphite {
 
 
 impl Graphite {
-    fn new(prefix: &str, host: SocketAddr) -> Graphite {
+    pub fn new(host: SocketAddr) -> Graphite {
+        Graphite {
+            host: host,
+            last_flush_time: 0,
+            last_flush_length: 0,
+            prefix: ~""
+        }
+    }
 
+    pub fn new_with_prefix(prefix: &str, host: SocketAddr) -> Graphite {
         Graphite {
             host: host,
             last_flush_time: 0,

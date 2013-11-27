@@ -1,4 +1,7 @@
 use server::buckets::Buckets;
+use server::backend::Backend;
+use server::backends::graphite::Graphite;
+use server::backends::console::Console;
 
 use std::from_str::FromStr;
 use std::io::Timer;
@@ -36,7 +39,7 @@ fn management_connection_loop(tcp_stream: ~tcp::TcpStream,
                 let (resp, end_conn) = buckets.do_management_line(line);
 
                 stream.write(resp.as_bytes());
-                stream.write("\n".as_bytes());
+                stream.write(['\n' as u8]);
                 stream.flush();
 
                 end_conn
@@ -95,6 +98,15 @@ fn udp_server_loop(chan: SharedChan<~Event>) {
 
 #[main]
 fn main() {
+    // TODO: make this configurable
+    let mut backends: ~[~Backend] = ~[];
+    {
+        let graphite_host = FromStr::from_str("0.0.0.0:8111").unwrap();
+        backends.push(~Graphite::new(graphite_host) as ~Backend);
+
+        backends.push(~Console::new() as ~Backend);
+    }
+
     let (event_port, event_chan_): (Port<~Event>, Chan<~Event>) = stream();
     let event_chan = SharedChan::new(event_chan_);
 
@@ -113,7 +125,13 @@ fn main() {
     loop {
         match *event_port.recv() {
             // Flush timeout
-            FlushTimer => buckets_arc.access(|buckets| buckets.flush()),
+            FlushTimer => buckets_arc.access(|buckets| {
+                for ref mut backend in backends.mut_iter() {
+                    backend.flush_buckets(buckets);
+                }
+
+                buckets.flush();
+            }),
 
             // Management server
             TcpMessage(s) => {

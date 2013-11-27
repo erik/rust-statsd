@@ -1,5 +1,4 @@
 use metric;
-use metric::Metric;
 
 use std::hashmap::HashMap;
 
@@ -30,12 +29,17 @@ impl Buckets {
 
             server_start_time: time::get_time(),
             last_message: time::get_time(),
-            bad_messages: 0
+            bad_messages: 0,
         }
     }
 
+    /// Clear out current buckets
     pub fn flush(&mut self) {
-        // TODO: write me.
+        self.counters.clear();
+        self.gauges.clear();
+        self.histograms.clear();
+        self.meters.clear();
+        self.timers.clear();
     }
 
     /// Return a tuple of (response_str, end_conn?). If end_conn==true, close
@@ -61,7 +65,7 @@ impl Buckets {
         (resp, false)
     }
 
-    pub fn add_metric(&mut self, metric: Metric) {
+    pub fn add_metric(&mut self, metric: metric::Metric) {
         let key = metric.name.clone();
         let val = metric.value;
 

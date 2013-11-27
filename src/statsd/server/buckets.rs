@@ -40,7 +40,7 @@ impl Buckets {
     }
 
     pub fn handle_management_cmd(&mut self, line: &str) -> ~str {
-        let mut words = line.word_iter();
+        let mut words = line.words();
 
         match words.next().unwrap_or("") {
             "delcounters" => ~"",

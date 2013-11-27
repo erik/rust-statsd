@@ -53,7 +53,7 @@ impl Client {
     }
 
     // Measure the time taken to execute the given function
-    pub fn time_block(&mut self, name: &str, block: &fn() -> ()) {
+    pub fn time_block(&mut self, name: &str, block: proc() -> ()) {
         let start_time = time::precise_time_ns();
         block();
         let run_time_ms = (time::precise_time_ns() - start_time) / 1000;

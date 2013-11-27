@@ -33,12 +33,12 @@ fn management_connection_loop(stream: ~tcp::TcpStream,
     loop {
         // XXX: this will fail if non-utf8 characters are used
         match stream.read_line() {
-            Some(line) => do buckets_arc.access |buckets| {
+            Some(line) => buckets_arc.access(|buckets| {
                 let resp = buckets.handle_management_cmd(line);
 
                 stream.write(resp.as_bytes());
                 stream.flush();
-            },
+            }),
             None => { break; }
         }
     }
@@ -97,9 +97,9 @@ fn main() {
     let mgmt_chan = event_chan.clone();
     let udp_chan = event_chan.clone();
 
-    spawn(|| flush_timer_loop(flush_chan));
-    spawn(|| management_server_loop(mgmt_chan));
-    spawn(|| udp_server_loop(udp_chan));
+    spawn(proc() { flush_timer_loop(flush_chan) });
+    spawn(proc() { management_server_loop(mgmt_chan) });
+    spawn(proc() { udp_server_loop(udp_chan) });
 
     let buckets = Buckets::new();
     let buckets_arc = MutexArc::new(buckets);
@@ -116,7 +116,7 @@ fn main() {
                 let buckets_arc = buckets_arc.clone();
 
                 // Spin up a new thread to handle the TCP stream.
-                spawn(|| management_connection_loop(s, buckets_arc));
+                spawn(proc() { management_connection_loop(s, buckets_arc) });
             },
 
             // UDP message received

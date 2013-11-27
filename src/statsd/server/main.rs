@@ -1,4 +1,4 @@
-use buckets::{Buckets};
+use server::buckets::Buckets;
 
 
 use std::from_str::FromStr;

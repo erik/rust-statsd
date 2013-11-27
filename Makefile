@@ -16,4 +16,4 @@ statsd-server:
 	$(RUSTC) src/statsd/statsd.rc --bin --out-dir $(BUILD_PATH)
 
 clean:
-	rm $(BUILD_PATH)/*
+	rm -rf $(BUILD_PATH)

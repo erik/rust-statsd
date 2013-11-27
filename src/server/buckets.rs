@@ -4,7 +4,6 @@ use metric::Metric;
 use std::hashmap::HashMap;
 
 use extra::time;
-//use extra::stats::Stats;
 
 
 pub struct Buckets {

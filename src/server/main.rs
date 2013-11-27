@@ -1,6 +1,5 @@
 use server::buckets::Buckets;
 
-
 use std::from_str::FromStr;
 use std::io::Timer;
 use std::io::buffered;

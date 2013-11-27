@@ -14,6 +14,11 @@ pub mod client;
 
 // XXX: This feels like the wrong way of doing this.
 pub mod server {
+    pub mod backend;
+
+    pub mod backends {
+        pub mod graphite;
+    }
     pub mod buckets;
     pub mod main;
 }

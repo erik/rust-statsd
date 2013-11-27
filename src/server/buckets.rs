@@ -38,18 +38,27 @@ impl Buckets {
         // TODO: write me.
     }
 
-    pub fn handle_management_cmd(&mut self, line: &str) -> ~str {
+    /// Return a tuple of (response_str, end_conn?). If end_conn==true, close
+    /// the connection.
+    pub fn do_management_line(&mut self, line: &str) -> (~str, bool) {
+
         let mut words = line.words();
 
-        match words.next().unwrap_or("") {
+        let resp = match words.next().unwrap_or("") {
             "delcounters" => ~"",
             "deltimers" => ~"",
             "gauges" => ~"",
             "health" => ~"",
             "stats" => ~"",
             "timers" => ~"",
+            "quit" => {
+                // Terminate the connection.
+                return (~"END\n\n", true);
+            },
             x => format!("ERROR: Unknown command: {}", x)
-        }
+        };
+
+        (resp, false)
     }
 
     pub fn add_metric(&mut self, metric: Metric) {

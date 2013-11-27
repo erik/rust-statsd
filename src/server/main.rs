@@ -25,20 +25,26 @@ enum Event {
 
 
 /// Run in a new task for each management connection made to the server.
-fn management_connection_loop(stream: ~tcp::TcpStream,
+fn management_connection_loop(tcp_stream: ~tcp::TcpStream,
                               buckets_arc: MutexArc<Buckets>) {
-    let mut stream = buffered::BufferedStream::new(*stream);
+    let mut stream = buffered::BufferedStream::new(*tcp_stream);
 
     loop {
         // XXX: this will fail if non-utf8 characters are used
-        match stream.read_line() {
-            Some(line) => buckets_arc.access(|buckets| {
-                let resp = buckets.handle_management_cmd(line);
+        let end_conn = stream.read_line().map_default(false, |line| {
+            buckets_arc.access(|buckets| {
+                let (resp, end_conn) = buckets.do_management_line(line);
 
                 stream.write(resp.as_bytes());
+                stream.write("\n".as_bytes());
                 stream.flush();
-            }),
-            None => { break; }
+
+                end_conn
+            })
+        });
+
+        if end_conn {
+            break
         }
     }
 }

@@ -1,7 +1,12 @@
-use server::buckets::Buckets;
-use server::backend::Backend;
-use server::backends::graphite::Graphite;
-use server::backends::console::Console;
+extern mod std;
+extern mod extra;
+
+extern mod statsd;
+
+use statsd::server::buckets::Buckets;
+use statsd::server::backend::Backend;
+use statsd::server::backends::graphite::Graphite;
+use statsd::server::backends::console::Console;
 
 use std::from_str::FromStr;
 use std::io::Timer;

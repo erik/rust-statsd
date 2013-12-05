@@ -12,14 +12,12 @@ extern mod extra;
 pub mod metric;
 pub mod client;
 
-// XXX: This feels like the wrong way of doing this.
 pub mod server {
     pub mod backend;
+    pub mod buckets;
 
     pub mod backends {
         pub mod graphite;
         pub mod console;
     }
-    pub mod buckets;
-    pub mod main;
 }

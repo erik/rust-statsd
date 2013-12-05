@@ -2,6 +2,8 @@ use server::backend::Backend;
 use server::buckets::Buckets;
 
 use std::io::net::ip::SocketAddr;
+use std::io::net::tcp::TcpStream;
+use std::io::io_error;
 use std::fmt::Default;
 
 use extra::time;
@@ -71,5 +73,13 @@ impl Backend for Graphite {
         let flush_length = end_time - start;
         self.last_flush_length = flush_length;
         self.last_flush_time = end_time;
+
+        // Try to send the data to our Graphite instance, ignoring failures.
+        io_error::cond.trap(|_| ()).inside (|| {
+            TcpStream::connect(self.host).map(|ref mut stream| {
+                stream.write(str_buf.as_bytes());
+                stream.flush();
+            });
+        });
     }
 }

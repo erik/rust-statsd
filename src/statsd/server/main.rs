@@ -106,7 +106,7 @@ fn main() {
     // TODO: make this configurable
     let mut backends: ~[~Backend] = ~[];
     {
-        let graphite_host = FromStr::from_str("0.0.0.0:8111").unwrap();
+        let graphite_host = FromStr::from_str("0.0.0.0:2003").unwrap();
         backends.push(~Graphite::new(graphite_host) as ~Backend);
 
         backends.push(~Console::new() as ~Backend);

@@ -4,7 +4,7 @@ RUSTC=rustc
 build_cmd= rustc -Llib --out-dir $(BUILD_PATH)
 
 all:
-	rustpkg build statsd
+	rustpkg install statsd
 
 clean:
 	rustpkg clean statsd

@@ -22,37 +22,37 @@ impl Console {
     }
 
     fn fmt_line<T: Default>(&mut self, key: &str, value: T) {
-        let now = time::now_utc();
-        println!("{} {} {}", now.rfc3339(), key, value)
+        println!("    {}: {}", key, value)
     }
 }
 
 
 impl Backend for Console {
     fn flush_buckets(&mut self, buckets: &Buckets) -> () {
-        let start = time::get_time().sec;
+        println!("{}:", time::now().rfc3339());
 
+        println!("  counters:");
         for (key, value) in buckets.counters.iter() {
-            let key = format!("counters.{}", *key);
-            self.fmt_line(key, *value);
+            self.fmt_line(*key, *value);
         }
 
+        println!("  gauges:");
         for (key, value) in buckets.gauges.iter() {
-            let key = format!("gauges.{}", *key);
-            self.fmt_line(key, *value);
+            self.fmt_line(*key, *value);
         }
 
+        println!("  timers:")
         for (key, values) in buckets.timers.iter() {
             let samples: &[f64] = *values;
-            let key = format!("timers.{}", *key);
 
-            println!("{key}.min {min}
-{key}.max {max}
-{key}.count {count}
-{key}.mean {mean}
-{key}.stddev {std}
-{key}.upper_95 {max_threshold}",
-                     key=key,
+            println!("    {key}:
+      min: {min}
+      max: {max}
+      count: {count}
+      mean: {mean}
+      stddev: {std}
+      upper_95: {max_threshold}",
+                     key=*key,
                      min=samples.min(),
                      max=samples.max(),
                      count=samples.len(),
@@ -60,14 +60,5 @@ impl Backend for Console {
                      std=samples.std_dev(),
                      max_threshold=samples.percentile(95.0));
         }
-
-        self.fmt_line("last_flush", self.last_flush_time);
-
-        self.fmt_line("flush_time", self.last_flush_time);
-
-        let end_time = time::get_time().sec;
-        let flush_length = end_time - start;
-        self.last_flush_length = flush_length;
-        self.last_flush_time = end_time;
     }
 }

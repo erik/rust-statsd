@@ -4,7 +4,8 @@ use server::buckets::Buckets;
 use std::fmt::Default;
 
 use extra::time;
-use extra::stats::Summary;
+use extra::stats::Stats;
+
 
 pub struct Console {
     last_flush_time: i64,
@@ -41,10 +42,23 @@ impl Backend for Console {
             self.fmt_line(key, *value);
         }
 
-        for (key, value) in buckets.timers.iter() {
+        for (key, values) in buckets.timers.iter() {
+            let samples: &[f64] = *values;
             let key = format!("timers.{}", *key);
-            let _ = Summary::new(*value);
-            self.fmt_line(key, "TODO: stats");
+
+            println!("{key}.min {min}
+{key}.max {max}
+{key}.count {count}
+{key}.mean {mean}
+{key}.stddev {std}
+{key}.upper_95 {max_threshold}",
+                     key=key,
+                     min=samples.min(),
+                     max=samples.max(),
+                     count=samples.len(),
+                     mean=samples.mean(),
+                     std=samples.std_dev(),
+                     max_threshold=samples.percentile(95.0));
         }
 
         self.fmt_line("last_flush", self.last_flush_time);

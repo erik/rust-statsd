@@ -7,7 +7,8 @@ use std::io::io_error;
 use std::fmt::Default;
 
 use extra::time;
-use extra::stats::Summary;
+use extra::stats::Stats;
+
 
 pub struct Graphite {
     host: SocketAddr,
@@ -57,10 +58,28 @@ impl Backend for Graphite {
             str_buf.push_str(self.fmt_line(key, *value, start));
         }
 
-        for (key, value) in buckets.timers.iter() {
+        for (key, values) in buckets.timers.iter() {
+            // XXX: This isn't optimal, needs to read full list for each
+            //      statistical value.
+
+            let samples: &[f64] = *values;
             let key = format!("timers.{}", *key);
-            let _ = Summary::new(*value);
-            str_buf.push_str(self.fmt_line(key, "TODO: stats", start));
+
+            let line = format!("{key}.min {min} {ts}
+{key}.max {max} {ts}
+{key}.count {count} {ts}
+{key}.mean {mean} {ts}
+{key}.stddev {std} {ts}
+{key}.upper_95 {max_threshold} {ts}\n",
+                               key=key, ts=start,
+                               min=samples.min(),
+                               max=samples.max(),
+                               count=samples.len(),
+                               mean=samples.mean(),
+                               std=samples.std_dev(),
+                               max_threshold=samples.percentile(95.0));
+
+            str_buf.push_str(line);
         }
 
         str_buf.push_str(self.fmt_line(

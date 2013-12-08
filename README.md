@@ -42,6 +42,15 @@ client.time_block("quux", proc() { /* expensive computation here */ });
 Server
 ------
 
+Usage:
+
+```
+Usage: ./bin/statsd [options]
+  -h --help               Show usage information
+  --graphite host[:port]  Enable the graphite backend. Port will default to 2003 if not specified.
+  --console               Enable console output.
+```
+
 ### Backends
 
 #### Console

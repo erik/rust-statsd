@@ -3,23 +3,26 @@ extern mod extra;
 
 extern mod statsd;
 
-use statsd::server::buckets::Buckets;
 use statsd::server::backend::Backend;
-use statsd::server::backends::graphite::Graphite;
 use statsd::server::backends::console::Console;
+use statsd::server::backends::graphite::Graphite;
+use statsd::server::buckets::Buckets;
 
 use std::from_str::FromStr;
 use std::io::Timer;
 use std::io::buffered;
 use std::io::net::ip::SocketAddr;
-use std::io::net::tcp;
+use std::io::net::{addrinfo, tcp};
 use std::io::net::udp::UdpSocket;
 use std::io::{Listener, Acceptor};
 use std::option::{Some, None};
+use std::os;
 use std::rt::comm::{Port, Chan, SharedChan, stream};
 use std::str;
 
 use extra::arc::MutexArc;
+use extra::getopts::{optopt, optflag, getopts};
+
 
 static FLUSH_INTERVAL_MS: u64 = 10000;
 static MAX_PACKET_SIZE: uint = 256;
@@ -101,15 +104,73 @@ fn udp_server_loop(chan: SharedChan<~Event>) {
 }
 
 
-#[main]
-fn main() {
-    // TODO: make this configurable
-    let mut backends: ~[~Backend] = ~[];
-    {
-        let graphite_host = FromStr::from_str("0.0.0.0:2003").unwrap();
-        backends.push(~Graphite::new(graphite_host) as ~Backend);
+fn print_usage() {
+    println!("Usage: {} [options]", os::args()[0]);
+    println("  -h --help               Show usage information");
+    println("  --graphite host[:port]  Enable the graphite backend. \
+Port will default to 2003 if not specified.");
+    println("  --console               Enable console output.");
+}
 
+
+fn main() {
+    let args = os::args();
+
+    let opts = ~[
+        optflag("h"), optflag("help"),
+        optopt("graphite"),
+        optflag("console")
+    ];
+
+    let matches = match getopts(args.tail(), opts) {
+        Ok(m) => { m },
+        Err(f) => {
+            println(f.to_err_msg());
+            return print_usage();
+        }
+    };
+
+    if matches.opt_present("h") || matches.opt_present("help") {
+        return print_usage();
+    }
+
+    let mut backends: ~[~Backend] = ~[];
+
+    if matches.opt_present("graphite") {
+        // We can safely unwrap here because getopt handles the error condition
+        // for us. Probably.
+        let arg_str = matches.opt_str("graphite").unwrap();
+        let mut iter = arg_str.split(':');
+
+        let host = iter.next().unwrap();
+        let port = match iter.next() {
+            Some(port) => match FromStr::from_str(port) {
+                Some(port) => port,
+                None => {
+                    println!("Invalid port number: {}", port);
+                    return print_usage();
+                }
+            },
+            None => 2003
+        };
+
+        let addr = match addrinfo::get_host_addresses(host) {
+            Some(addrs) => addrs[0],
+            None => {
+                println!("Bad host name {}", host);
+                return;
+            }
+        };
+
+        let graphite = ~Graphite::new(SocketAddr{ip: addr, port: port});
+        backends.push(graphite as ~Backend);
+
+        info!("Using graphite backend ({}:{}).", host, port);
+    }
+
+    if matches.opt_present("console") {
         backends.push(~Console::new() as ~Backend);
+        info!("Using console backend.");
     }
 
     let (event_port, event_chan_): (Port<~Event>, Chan<~Event>) = stream();

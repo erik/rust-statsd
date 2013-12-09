@@ -44,8 +44,9 @@ impl fmt::Default for Metric {
 impl FromStr for Metric {
 
     /// Valid message formats are:
-    ///    <str:metric_name>:<f64:value>|<str:type>
-    ///    <str:metric_name>:<f64:value>|c|@<f64:sample_rate>
+    ///
+    /// - `<str:metric_name>:<f64:value>|<str:type>`
+    /// - `<str:metric_name>:<f64:value>|c|@<f64:sample_rate>`
     fn from_str(line: &str) -> Option<Metric> {
         // Pointer to position in line
         let mut idx = 0u;

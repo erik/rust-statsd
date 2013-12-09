@@ -6,9 +6,14 @@ use std::rand::{random, Open01};
 use extra::time;
 
 
+/** Simple interface to a statsd host.
+
+Does only minimal computation (basically just whether or not to send sampled
+data and timing a function call). Most work is handled by the server.
+*/
 pub struct Client {
-    dest: SocketAddr,
-    sock: UdpSocket
+    priv dest: SocketAddr,
+    priv sock: UdpSocket
 }
 
 
@@ -17,6 +22,7 @@ impl Client {
     // TODO: allow prefixing keys
     // TODO: does it make sense to allow sampling on thing other than ctrs?
 
+    /// Construct a new statsd client given a hostname and port.
     pub fn new(dest: SocketAddr) -> Client {
         // XXX: Is this the right way to do this?
         let client_addr: SocketAddr = FromStr::from_str("0.0.0.0:0").unwrap();
@@ -25,34 +31,47 @@ impl Client {
         Client { dest: dest, sock: sock }
     }
 
+    /// Increment the given `name` by one with a probability of `sample_rate`.
     pub fn incr(&mut self, name: &str, sample_rate: f64) {
         self.count_sampled(name, 1.0, sample_rate);
     }
 
+    /// Decrement the given `name` by one with a probability of `sample_rate`.
     pub fn decr(&mut self, name: &str, sample_rate: f64) {
         self.count_sampled(name, -1.0, sample_rate);
     }
 
+    /// Add `value` to the given `name`.
     pub fn count(&mut self, name: &str, value: f64) {
         self.count_sampled(name, value, 1.0);
     }
 
+    /// Add `value` to the given `name` with a probability of `sample_rate`.
     pub fn count_sampled(&mut self, name: &str, value: f64, sample_rate: f64) {
         let data = format!("{}:{}|c@{}", name, value, sample_rate);
-        self.send(data);
+        self.send_sampled(data, sample_rate);
     }
 
+    /// Simply set the given `name` to `value`.
     pub fn gauge(&mut self, name: &str, value: f64) {
         let data = format!("{}:{}|g", name, value);
         self.send(data);
     }
 
+    /** Specify that this instance of `name` took `ms` milliseconds.
+
+    It doesn't matter what you use here. Statsd bizarrely treats timed values
+    specially. A better name for this kind of value would be `histogram`,
+    because that's what's really being calculated from the server side. Some
+    server implementations support histogram keys (XXX: this one will too).
+    */
     pub fn time(&mut self, name: &str, ms: uint) {
         let data = format!("{}:{}|ms", name, ms);
         self.send(data);
     }
 
-    // Measure the time taken to execute the given function
+    /// Similar to `time`, but the `ms` value sent is the amount of time taken
+    /// to execute the proc.
     pub fn time_block(&mut self, name: &str, block: proc()) {
         let start_time = time::precise_time_ns();
         block();
@@ -61,10 +80,12 @@ impl Client {
         self.time(name, (run_time_ms as uint));
     }
 
+    /// Data goes in, data comes out.
     fn send(&mut self, data: &str) {
         self.sock.sendto(data.as_bytes(), self.dest);
     }
 
+    /// Data goes in, data comes out. With a defined probability.
     fn send_sampled(&mut self, data: &str, sample_rate: f64) {
         // XXX: Make sure this is seeded properly.
         let rand: Open01<f64> = random();

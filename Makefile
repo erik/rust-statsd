@@ -9,5 +9,11 @@ all:
 check:
 	rustpkg test statsd
 
+doc:
+	rustdoc src/statsd/lib.rs
+
 clean:
 	rustpkg clean statsd
+
+
+.PHONY: all check doc clean

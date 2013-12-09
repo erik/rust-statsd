@@ -4,6 +4,7 @@ use std::num;
 use std::option::{Option, Some, None};
 
 
+#[deriving(Eq)]
 pub enum MetricKind {
     Counter(f64), // sample rate
     Gauge,
@@ -26,6 +27,7 @@ impl fmt::Default for MetricKind {
 }
 
 
+#[deriving(Eq)]
 pub struct Metric {
     kind: MetricKind,
     name: ~str,
@@ -50,8 +52,12 @@ impl FromStr for Metric {
 
         let name = match line.find(':') {
             Some(pos) => {
-                idx += pos + 1;
+                // We don't want to allow blank key names.
+                if pos == 0 {
+                    return None
+                }
 
+                idx += pos + 1;
                 line.slice_to(pos).to_owned()
             },
 
@@ -81,13 +87,9 @@ impl FromStr for Metric {
             "m" => Meter,
             "g" => Gauge,
             // Sampled counter
-            "c|@" => {
-                let sample: f64 = match FromStr::from_str(line.slice_from(end_idx + 1)) {
-                    Some(x) => x,
-                    None => return None
-                };
-
-                Counter(sample)
+            "c|@" => match FromStr::from_str(line.slice_from(end_idx)) {
+                Some(sample) => Counter(sample),
+                None => return None
             },
 
             // Unknown type
@@ -95,5 +97,51 @@ impl FromStr for Metric {
         };
 
         Some(Metric {kind: kind, name: name, value: value})
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::Metric;
+
+    #[test]
+    fn test_from_str_valid_input() {
+        let in_out_map = ~[
+            ("f.o.o:1|c",      Metric {kind: super::Counter(1.0), name: ~"f.o.o", value: 1.0}),
+            ("foo:9.1|c|@0.5", Metric {kind: super::Counter(0.5), name: ~"foo", value: 9.1}),
+            ("foo:2|c|@1",     Metric {kind: super::Counter(1.0), name: ~"foo", value: 2.0}),
+            ("foo:2|c|@123",   Metric {kind: super::Counter(123.0), name: ~"foo", value: 2.0}),
+            ("foo:12.3|ms",    Metric {kind: super::Timer, name: ~"foo", value: 12.3}),
+            ("foo:1|ms",       Metric {kind: super::Timer, name: ~"foo", value: 1.0}),
+            ("foo:1|h",        Metric {kind: super::Histogram, name: ~"foo", value: 1.0}),
+            ("foo:1.23|h",     Metric {kind: super::Histogram, name: ~"foo", value: 1.23}),
+            ("foo:1|g",        Metric {kind: super::Gauge, name: ~"foo", value: 1.0}),
+            ("foo:1.23|g",     Metric {kind: super::Gauge, name: ~"foo", value: 1.23})
+        ];
+
+        for (input, expected) in in_out_map.move_iter() {
+            let actual: Metric = FromStr::from_str(input).unwrap();
+
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_from_str_invalid_input() {
+        let inputs = ~[
+            "f",
+            "f:",
+            "f:c",
+            "f:1.0|",
+            "f:1.0|c@",
+            ":|@",
+            ":1.0|c"
+        ];
+
+        for input in inputs.move_iter() {
+            let metric: Option<Metric> = FromStr::from_str(input);
+            assert!(metric.is_none());
+        }
     }
 }

@@ -14,7 +14,8 @@ pub struct Buckets {
 
     server_start_time: time::Timespec,
     last_message: time::Timespec,
-    bad_messages: uint
+    bad_messages: uint,
+    total_messages: uint
 }
 
 
@@ -30,6 +31,7 @@ impl Buckets {
             server_start_time: time::get_time(),
             last_message: time::get_time(),
             bad_messages: 0,
+            total_messages: 0
         }
     }
 
@@ -49,15 +51,43 @@ impl Buckets {
         let mut words = line.words();
 
         let resp = match words.next().unwrap_or("") {
-            "delcounters" => ~"",
-            "deltimers" => ~"",
-            "gauges" => ~"",
-            "health" => ~"",
-            "stats" => ~"",
-            "timers" => ~"",
+            "stats" => {
+                let uptime = time::get_time().sec - self.server_start_time.sec;
+
+                format!("uptime: {up} s\nbad messages: {bad}total messages: {total}",
+                        up=uptime,
+                        bad=self.bad_messages,
+                        total=self.total_messages)
+            },
+            "clear" => {
+                match words.next().unwrap_or("") {
+                    "counters" => {
+                        self.counters.clear();
+                        ~"Counters cleared."
+                    },
+                    "gauges" => {
+                        self.gauges.clear();
+                        ~"Gauges cleared."
+                    },
+                    "meters" => {
+                        self.meters.clear();
+                        ~"Meters cleared."
+                    },
+                    "histograms" => {
+                        self.histograms.clear();
+                        ~"Histograms cleared."
+                    },
+                    "timers" => {
+                        self.timers.clear();
+                        ~"Timers cleared."
+                    },
+                    "" => ~"ERROR: need something to clear!",
+                    x => format!("ERROR: Nothing named '{}' to clear.", x)
+                }
+            },
             "quit" => {
                 // Terminate the connection.
-                return (~"END\n\n", true);
+                return (~"END", true);
             },
             x => format!("ERROR: Unknown command: {}", x)
         };
@@ -95,5 +125,6 @@ impl Buckets {
         }
 
         self.last_message = time::get_time();
+        self.total_messages += 1;
     }
 }

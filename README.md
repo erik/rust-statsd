@@ -1,4 +1,4 @@
-rust-statsd
+rust-statsd [![Build Status](https://travis-ci.org/boredomist/rust-statsd.png?branch=master)](https://travis-ci.org/boredomist/rust-statsd)
 ===========
 
 It's a `statsd` server/client implementation. In Rust.

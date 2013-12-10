@@ -2,6 +2,7 @@ use server::backend::Backend;
 use server::buckets::Buckets;
 
 use std::fmt::Default;
+use std::hashmap::HashMap;
 
 use extra::time;
 use extra::stats::Stats;
@@ -27,6 +28,29 @@ impl Console {
 }
 
 
+/// Code common to both Histograms and Timers (because they're the same)
+fn print_stats(hist: &HashMap<~str, ~[f64]>) {
+    for (key, values) in hist.iter() {
+        let samples: &[f64] = *values;
+
+        println!("    {key}:
+      min: {min}
+      max: {max}
+      count: {count}
+      mean: {mean}
+      stddev: {std}
+      upper_95: {max_threshold}",
+                 key=*key,
+                 min=samples.min(),
+                 max=samples.max(),
+                 count=samples.len(),
+                 mean=samples.mean(),
+                 std=samples.std_dev(),
+                 max_threshold=samples.percentile(95.0));
+    }
+}
+
+
 impl Backend for Console {
     fn flush_buckets(&mut self, buckets: &Buckets) -> () {
         println!("{}:", time::now().rfc3339());
@@ -41,24 +65,10 @@ impl Backend for Console {
             self.fmt_line(*key, *value);
         }
 
-        println!("  timers:")
-        for (key, values) in buckets.timers.iter() {
-            let samples: &[f64] = *values;
+        println!("  timers:");
+        print_stats(&buckets.timers);
 
-            println!("    {key}:
-      min: {min}
-      max: {max}
-      count: {count}
-      mean: {mean}
-      stddev: {std}
-      upper_95: {max_threshold}",
-                     key=*key,
-                     min=samples.min(),
-                     max=samples.max(),
-                     count=samples.len(),
-                     mean=samples.mean(),
-                     std=samples.std_dev(),
-                     max_threshold=samples.percentile(95.0));
-        }
+        println!("  histograms:");
+        print_stats(&buckets.histograms);
     }
 }

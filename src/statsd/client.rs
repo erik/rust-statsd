@@ -63,7 +63,8 @@ impl Client {
     It doesn't matter what you use here. Statsd bizarrely treats timed values
     specially. A better name for this kind of value would be `histogram`,
     because that's what's really being calculated from the server side. Some
-    server implementations support histogram keys (XXX: this one will too).
+    server implementations (such as the one included here) support histogram
+    keys.
     */
     pub fn time(&mut self, name: &str, ms: uint) {
         let data = format!("{}:{}|ms", name, ms);

@@ -8,8 +8,8 @@ use extra::time;
 pub struct Buckets {
     counters:   HashMap<~str, f64>,
     gauges:     HashMap<~str, f64>,
-    histograms: HashMap<~str, f64>,
     meters:     HashMap<~str, f64>,
+    histograms: HashMap<~str, ~[f64]>,
     timers:     HashMap<~str, ~[f64]>,
 
     server_start_time: time::Timespec,
@@ -85,7 +85,12 @@ impl Buckets {
                 self.timers
                     .insert_or_update_with(key, ~[], |_, v| v.push(val));
             },
-            metric::Histogram => warn!("Histogram not implemented: {}", metric),
+            // Histograms are functionally equivalent to Timers with a
+            // different name.
+            metric::Histogram => {
+                self.histograms
+                    .insert_or_update_with(key, ~[], |_, v| v.push(val));
+            },
             metric::Meter => warn!("Meter not implemented: {}", metric)
         }
 

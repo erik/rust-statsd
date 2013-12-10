@@ -52,6 +52,8 @@ Usage: ./bin/statsd [options]
   -h --help               Show usage information
   --graphite host[:port]  Enable the graphite backend. Port will default to 2003 if not specified.
   --console               Enable console output.
+  --port port             Have the statsd server listen on this UDP port. Defaults to 8125.
+  --admin-port port       Have the admin server listen on this TCP port. Defaults to 8126.
 ```
 
 ### Backends

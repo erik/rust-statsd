@@ -11,7 +11,7 @@ use statsd::server::buckets::Buckets;
 use std::from_str::FromStr;
 use std::io::Timer;
 use std::io::buffered;
-use std::io::net::ip::SocketAddr;
+use std::io::net::ip::{Ipv4Addr, SocketAddr};
 use std::io::net::{addrinfo, tcp};
 use std::io::net::udp::UdpSocket;
 use std::io::{Listener, Acceptor};
@@ -26,6 +26,9 @@ use extra::getopts::{optopt, optflag, getopts};
 
 static FLUSH_INTERVAL_MS: u64 = 10000;
 static MAX_PACKET_SIZE: uint = 256;
+
+static DEFAULT_UDP_PORT: u16 = 8125;
+static DEFAULT_TCP_PORT: u16 = 8126;
 
 
 enum Event {
@@ -72,8 +75,8 @@ fn flush_timer_loop(chan: SharedChan<~Event>) {
 }
 
 
-fn management_server_loop(chan: SharedChan<~Event>) {
-    let addr: SocketAddr = FromStr::from_str("0.0.0.0:8126").unwrap();
+fn management_server_loop(chan: SharedChan<~Event>, port: u16) {
+    let addr = SocketAddr { ip: Ipv4Addr(0, 0, 0, 0), port: port };
     let listener = tcp::TcpListener::bind(addr).unwrap();
     let mut acceptor = listener.listen();
 
@@ -84,8 +87,8 @@ fn management_server_loop(chan: SharedChan<~Event>) {
     }
 }
 
-fn udp_server_loop(chan: SharedChan<~Event>) {
-    let addr: SocketAddr = FromStr::from_str("0.0.0.0:8125").unwrap();
+fn udp_server_loop(chan: SharedChan<~Event>, port: u16) {
+    let addr = SocketAddr { ip: Ipv4Addr(0, 0, 0, 0), port: port };
     let mut socket = UdpSocket::bind(addr).unwrap();
     let mut buf = [0u8, ..MAX_PACKET_SIZE];
 
@@ -110,6 +113,10 @@ fn print_usage() {
     println("  --graphite host[:port]  Enable the graphite backend. \
 Port will default to 2003 if not specified.");
     println("  --console               Enable console output.");
+    println!("  --port port             Have the statsd server listen on this \
+UDP port. Defaults to {}.", DEFAULT_UDP_PORT);
+    println!("  --admin-port port       Have the admin server listen on this \
+TCP port. Defaults to {}.", DEFAULT_TCP_PORT);
 }
 
 
@@ -119,7 +126,9 @@ fn main() {
     let opts = ~[
         optflag("h"), optflag("help"),
         optopt("graphite"),
-        optflag("console")
+        optflag("console"),
+        optopt("port"),
+        optopt("admin-port")
     ];
 
     let matches = match getopts(args.tail(), opts) {
@@ -173,6 +182,28 @@ fn main() {
         info!("Using console backend.");
     }
 
+    let udp_port = match matches.opt_str("port") {
+        Some(port_str) => match FromStr::from_str(port_str) {
+            Some(port) => port,
+            None => {
+                println!("Invalid port number: {}", port_str);
+                return print_usage();
+            }
+        },
+        None => DEFAULT_UDP_PORT
+    };
+
+    let tcp_port = match matches.opt_str("admin-port") {
+        Some(port_str) => match FromStr::from_str(port_str) {
+            Some(port) => port,
+            None => {
+                println!("Invalid port number: {}", port_str);
+                return print_usage();
+            }
+        },
+        None => DEFAULT_TCP_PORT
+    };
+
     let (event_port, event_chan_): (Port<~Event>, Chan<~Event>) = stream();
     let event_chan = SharedChan::new(event_chan_);
 
@@ -181,8 +212,8 @@ fn main() {
     let udp_chan = event_chan.clone();
 
     spawn(proc() { flush_timer_loop(flush_chan) });
-    spawn(proc() { management_server_loop(mgmt_chan) });
-    spawn(proc() { udp_server_loop(udp_chan) });
+    spawn(proc() { management_server_loop(mgmt_chan, tcp_port) });
+    spawn(proc() { udp_server_loop(udp_chan, udp_port) });
 
     let buckets = Buckets::new();
     let buckets_arc = MutexArc::new(buckets);

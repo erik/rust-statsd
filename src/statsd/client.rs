@@ -81,6 +81,13 @@ impl Client {
         self.time(name, (run_time_ms as uint));
     }
 
+    /// Append `val` to the vector `name`. Server will generate summary
+    /// statistics for the vector on each flush.
+    pub fn hist(&mut self, name: &str, val: f64) {
+        let data = format!("{}:{}|h", name, val);
+        self.send(data);
+    }
+
     /// Data goes in, data comes out.
     fn send(&mut self, data: &str) {
         self.sock.sendto(data.as_bytes(), self.dest);

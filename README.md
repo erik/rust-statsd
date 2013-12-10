@@ -37,6 +37,9 @@ client.time("quux", 300);
 
 // Add a run to "quux" with the time taken to execute the given proc.
 client.time_block("quux", proc() { /* expensive computation here */ });
+
+// Add a value to "foo" with the value 123.45
+client.hist("foo", 123.45);
 ```
 
 Server

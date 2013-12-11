@@ -164,8 +164,8 @@ fn main() {
         };
 
         let addr = match addrinfo::get_host_addresses(host) {
-            Some(addrs) => addrs[0],
-            None => {
+            Some(ref addrs) if addrs.len() > 0 => addrs[0],
+            _ => {
                 println!("Bad host name {}", host);
                 return;
             }

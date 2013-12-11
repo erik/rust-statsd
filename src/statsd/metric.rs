@@ -52,17 +52,13 @@ impl FromStr for Metric {
         let mut idx = 0u;
 
         let name = match line.find(':') {
-            Some(pos) => {
-                // We don't want to allow blank key names.
-                if pos == 0 {
-                    return None
-                }
-
+            // We don't want to allow blank key names.
+            Some(pos) if pos != 0 => {
                 idx += pos + 1;
                 line.slice_to(pos).to_owned()
             },
 
-            None => return None
+            _ => return None
         };
 
         let value: f64 = match line.slice_from(idx).find('|') {

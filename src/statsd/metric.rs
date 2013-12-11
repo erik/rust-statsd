@@ -61,17 +61,16 @@ impl FromStr for Metric {
             _ => return None
         };
 
-        let value: f64 = match line.slice_from(idx).find('|') {
-            Some(pos) => {
-                let val: Option<f64> = FromStr::from_str(line.slice(idx, idx + pos));
-                idx += pos + 1;
+        // Try to parse `<f64>|`, return None if no match is found.
+        let value_opt = line.slice_from(idx).find('|').and_then(|loc| {
+            FromStr::from_str(line.slice(idx, idx + loc)).map(|val| {
+                idx += loc + 1;
+                val
+            })
+        });
 
-                match val {
-                    Some(x) => x,
-                    None    => return None
-                }
-            },
-
+        let value = match value_opt {
+            Some(v) => v,
             None => return None
         };
 
@@ -93,6 +92,6 @@ impl FromStr for Metric {
             _ => return None
         };
 
-        Some(Metric {kind: kind, name: name, value: value})
+        Some(Metric { kind: kind, name: name, value: value })
     }
 }

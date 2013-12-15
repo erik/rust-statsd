@@ -8,7 +8,6 @@ use extra::time;
 pub struct Buckets {
     counters:   HashMap<~str, f64>,
     gauges:     HashMap<~str, f64>,
-    meters:     HashMap<~str, f64>,
     histograms: HashMap<~str, ~[f64]>,
     timers:     HashMap<~str, ~[f64]>,
 
@@ -25,7 +24,6 @@ impl Buckets {
             counters: HashMap::new(),
             gauges: HashMap::new(),
             histograms: HashMap::new(),
-            meters: HashMap::new(),
             timers: HashMap::new(),
 
             server_start_time: time::get_time(),
@@ -40,7 +38,6 @@ impl Buckets {
         self.counters.clear();
         self.gauges.clear();
         self.histograms.clear();
-        self.meters.clear();
         self.timers.clear();
     }
 
@@ -68,10 +65,6 @@ impl Buckets {
                     "gauges" => {
                         self.gauges.clear();
                         ~"Gauges cleared."
-                    },
-                    "meters" => {
-                        self.meters.clear();
-                        ~"Meters cleared."
                     },
                     "histograms" => {
                         self.histograms.clear();
@@ -108,20 +101,16 @@ impl Buckets {
                 );
             },
             metric::Gauge => {
-                self.gauges
-                    .insert(key, val);
+                self.gauges.insert(key, val);
             },
             metric::Timer => {
-                self.timers
-                    .insert_or_update_with(key, ~[], |_, v| v.push(val));
+                self.timers.insert_or_update_with(key, ~[], |_, v| v.push(val));
             },
             // Histograms are functionally equivalent to Timers with a
             // different name.
             metric::Histogram => {
-                self.histograms
-                    .insert_or_update_with(key, ~[], |_, v| v.push(val));
-            },
-            metric::Meter => warn!("Meter not implemented: {}", metric)
+                self.histograms.insert_or_update_with(key, ~[], |_, v| v.push(val));
+            }
         }
 
         self.last_message = time::get_time();

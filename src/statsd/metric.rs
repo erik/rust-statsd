@@ -9,8 +9,7 @@ pub enum MetricKind {
     Counter(f64), // sample rate
     Gauge,
     Timer,
-    Histogram,
-    Meter
+    Histogram
 }
 
 
@@ -20,7 +19,6 @@ impl fmt::Default for MetricKind {
             Gauge      => write!(f.buf, "Gauge"),
             Timer      => write!(f.buf, "Timer"),
             Histogram  => write!(f.buf, "Histogram"),
-            Meter      => write!(f.buf, "Meter"),
             Counter(s) => write!(f.buf, "Counter(s={})", s)
         }
     }
@@ -80,7 +78,6 @@ impl FromStr for Metric {
             "c" => Counter(1.0),
             "ms" => Timer,
             "h" => Histogram,
-            "m" => Meter,
             "g" => Gauge,
             // Sampled counter
             "c|@" => match FromStr::from_str(line.slice_from(end_idx)) {

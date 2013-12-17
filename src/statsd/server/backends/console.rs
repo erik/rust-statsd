@@ -1,3 +1,6 @@
+//! Print out a YAML representation of the server's buckets to the attached
+//! terminal on every flush event.
+
 use server::backend::Backend;
 use server::buckets::Buckets;
 

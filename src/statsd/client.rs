@@ -10,6 +10,8 @@ use extra::time;
 
 Does only minimal computation (basically just whether or not to send sampled
 data and timing a function call). Most work is handled by the server.
+
+**TODO**: allow prefixing keys.
 */
 pub struct Client {
     priv dest: SocketAddr,
@@ -18,10 +20,6 @@ pub struct Client {
 
 
 impl Client {
-
-    // TODO: allow prefixing keys
-    // TODO: does it make sense to allow sampling on thing other than ctrs?
-
     /// Construct a new statsd client given a hostname and port.
     pub fn new(dest: SocketAddr) -> Client {
         // XXX: Is this the right way to do this?

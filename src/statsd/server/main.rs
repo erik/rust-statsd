@@ -31,6 +31,7 @@ static DEFAULT_UDP_PORT: u16 = 8125;
 static DEFAULT_TCP_PORT: u16 = 8126;
 
 
+/// Different kinds of events we accept in the main event loop.
 enum Event {
     FlushTimer,
     UdpMessage(~[u8]),
@@ -75,6 +76,7 @@ fn flush_timer_loop(chan: SharedChan<~Event>) {
 }
 
 
+/// Accept incoming TCP connection to the statsd management port.
 fn management_server_loop(chan: SharedChan<~Event>, port: u16) {
     let addr = SocketAddr { ip: Ipv4Addr(0, 0, 0, 0), port: port };
     let listener = tcp::TcpListener::bind(addr).unwrap();
@@ -87,6 +89,8 @@ fn management_server_loop(chan: SharedChan<~Event>, port: u16) {
     }
 }
 
+
+/// Accept incoming UDP data from statsd clients.
 fn udp_server_loop(chan: SharedChan<~Event>, port: u16) {
     let addr = SocketAddr { ip: Ipv4Addr(0, 0, 0, 0), port: port };
     let mut socket = UdpSocket::bind(addr).unwrap();
@@ -218,7 +222,7 @@ fn main() {
     let buckets = Buckets::new();
     let buckets_arc = MutexArc::new(buckets);
 
-    // XXX: Handle broken pipe task failure.
+    // Main event loop.
     loop {
         match *event_port.recv() {
             // Flush timeout

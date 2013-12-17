@@ -5,6 +5,11 @@ use std::hashmap::HashMap;
 use extra::time;
 
 
+/// Buckets are the main storage of the statsd server. Each bucket is a simple
+/// hashmap representing the key: value pairs that the statsd clients send to this
+/// server.
+///
+/// The buckets are cleared out on every flush event.
 pub struct Buckets {
     counters:   HashMap<~str, f64>,
     gauges:     HashMap<~str, f64>,
@@ -41,6 +46,8 @@ impl Buckets {
         self.timers.clear();
     }
 
+    /// Act on a line of text sent to the management server.
+    ///
     /// Return a tuple of (response_str, end_conn?). If end_conn==true, close
     /// the connection.
     pub fn do_management_line(&mut self, line: &str) -> (~str, bool) {
@@ -88,6 +95,7 @@ impl Buckets {
         (resp, false)
     }
 
+    /// Add `metric` to the proper bucket.
     pub fn add_metric(&mut self, metric: metric::Metric) {
         let key = metric.name.clone();
         let val = metric.value;

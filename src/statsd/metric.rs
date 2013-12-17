@@ -4,6 +4,7 @@ use std::num;
 use std::option::{Option, Some, None};
 
 
+/// All known metric types that we can send or receive.
 #[deriving(Eq)]
 pub enum MetricKind {
     Counter(f64), // sample rate
@@ -25,6 +26,7 @@ impl fmt::Default for MetricKind {
 }
 
 
+/// Internal represenation of a line sent by a statsd client.
 #[deriving(Eq)]
 pub struct Metric {
     kind: MetricKind,

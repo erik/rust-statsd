@@ -1,3 +1,5 @@
+//! Export data to a specified graphite instance over TCP.
+
 use server::backend::Backend;
 use server::buckets::Buckets;
 
@@ -29,6 +31,8 @@ impl Graphite {
         }
     }
 
+
+    /// Create with a prefix that will be automatically prepended to all keys.
     pub fn new_with_prefix(prefix: &str, host: SocketAddr) -> Graphite {
         Graphite {
             host: host,

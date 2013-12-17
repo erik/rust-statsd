@@ -65,9 +65,9 @@ fn management_connection_loop(tcp_stream: ~tcp::TcpStream,
 }
 
 
-fn flush_timer_loop(chan: SharedChan<~Event>) {
+fn flush_timer_loop(chan: SharedChan<~Event>, int_ms: u64) {
     let mut timer = Timer::new().unwrap();
-    let periodic = timer.periodic(FLUSH_INTERVAL_MS);
+    let periodic = timer.periodic(int_ms);
 
     loop {
         periodic.recv();
@@ -121,6 +121,8 @@ Port will default to 2003 if not specified.");
 UDP port. Defaults to {}.", DEFAULT_UDP_PORT);
     println!("  --admin-port port       Have the admin server listen on this \
 TCP port. Defaults to {}.", DEFAULT_TCP_PORT);
+    println!("  --flush                 Flush interval, in seconds. Defaults \
+to {}.", FLUSH_INTERVAL_MS / 1000);
 }
 
 
@@ -132,7 +134,8 @@ fn main() {
         optopt("graphite"),
         optflag("console"),
         optopt("port"),
-        optopt("admin-port")
+        optopt("admin-port"),
+        optopt("flush")
     ];
 
     let matches = match getopts(args.tail(), opts) {
@@ -208,6 +211,17 @@ fn main() {
         None => DEFAULT_TCP_PORT
     };
 
+    let flush_interval = match matches.opt_str("flush") {
+        Some(str_secs) => match from_str::<u64>(str_secs) {
+            Some(secs) => secs * 1000,
+            None => {
+                println!("Invalid integer: {}", str_secs);
+                return print_usage();
+            }
+        },
+        None => FLUSH_INTERVAL_MS
+    };
+
     let (event_port, event_chan_): (Port<~Event>, Chan<~Event>) = stream();
     let event_chan = SharedChan::new(event_chan_);
 
@@ -215,7 +229,7 @@ fn main() {
     let mgmt_chan = event_chan.clone();
     let udp_chan = event_chan.clone();
 
-    spawn(proc() { flush_timer_loop(flush_chan) });
+    spawn(proc() { flush_timer_loop(flush_chan, flush_interval) });
     spawn(proc() { management_server_loop(mgmt_chan, tcp_port) });
     spawn(proc() { udp_server_loop(udp_chan, udp_port) });
 

@@ -17,7 +17,7 @@ use std::io::net::udp::UdpSocket;
 use std::io::{Listener, Acceptor};
 use std::option::{Some, None};
 use std::os;
-use std::rt::comm::{Port, Chan, SharedChan, stream};
+use std::comm::{Port, Chan, SharedChan, stream};
 use std::str;
 
 use extra::arc::MutexArc;

@@ -17,7 +17,7 @@ use std::io::net::udp::UdpSocket;
 use std::io::{Listener, Acceptor};
 use std::option::{Some, None};
 use std::os;
-use std::comm::{Port, Chan, SharedChan};
+use std::comm::SharedChan;
 use std::str;
 
 use extra::arc::MutexArc;
@@ -222,8 +222,7 @@ fn main() {
         None => FLUSH_INTERVAL_MS
     };
 
-    let (event_port, event_chan_): (Port<~Event>, Chan<~Event>) = stream();
-    let event_chan = SharedChan::new(event_chan_);
+    let (event_port, event_chan) = SharedChan::<~Event>::new();
 
     let flush_chan = event_chan.clone();
     let mgmt_chan = event_chan.clone();

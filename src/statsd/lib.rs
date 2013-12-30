@@ -1,8 +1,3 @@
-
-#[link(name = "statsd",
-       vers = "0.0.0",
-       url = "http://github.com/boredomist/rust-statsd")];
-
 /*! A pure Rust implementation of the statsd server.
 
 The statsd protocol consistents of plain-text single-packet messages sent
@@ -16,7 +11,7 @@ this.
 #[comment = "statsd implementation"];
 #[license = "MIT"];
 #[crate_type = "lib"];
-#[pkgid = "statsd"];
+#[crate_id = "statsd#0.0.0"];
 
 
 extern mod std;

@@ -178,14 +178,13 @@ fn main() {
             }
         };
 
-        let graphite = ~Graphite::new(SocketAddr{ip: addr, port: port});
-        backends.push(graphite as ~Backend);
-
+        let backend = Graphite::new(SocketAddr{ip: addr, port: port});
+        backends.push(box backend as ~Backend);
         info!("Using graphite backend ({}:{}).", host, port);
     }
 
     if matches.opt_present("console") {
-        backends.push(~Console::new() as ~Backend);
+        backends.push(box Console::new() as ~Backend);
         info!("Using console backend.");
     }
 

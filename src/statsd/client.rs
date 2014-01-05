@@ -1,7 +1,7 @@
 use std::from_str::FromStr;
 use std::io::net::ip::SocketAddr;
 use std::io::net::udp::UdpSocket;
-use std::rand::{random, Open01};
+use std::rand::random;
 
 use extra::time;
 
@@ -93,10 +93,7 @@ impl Client {
 
     /// Data goes in, data comes out. With a defined probability.
     fn send_sampled(&mut self, data: &str, sample_rate: f64) {
-        // XXX: Make sure this is seeded properly.
-        let rand: Open01<f64> = random();
-
-        if *rand > sample_rate || sample_rate >= 1.0 {
+        if random::<f64>() > sample_rate || sample_rate >= 1.0 {
             self.send(data);
         }
     }

@@ -46,7 +46,7 @@ fn management_connection_loop(tcp_stream: ~tcp::TcpStream,
 
     loop {
         // XXX: this will fail if non-utf8 characters are used
-        let end_conn = stream.read_line().map_default(false, |line| {
+        let end_conn = stream.read_line().map_or(false, |line| {
             buckets_arc.access(|buckets| {
                 let (resp, end_conn) = buckets.do_management_line(line);
 

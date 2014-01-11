@@ -113,10 +113,10 @@ fn udp_server_loop(chan: SharedChan<~Event>, port: u16) {
 
 fn print_usage() {
     println!("Usage: {} [options]", os::args()[0]);
-    println("  -h --help               Show usage information");
-    println("  --graphite host[:port]  Enable the graphite backend. \
+    println!("  -h --help               Show usage information");
+    println!("  --graphite host[:port]  Enable the graphite backend. \
 Port will default to 2003 if not specified.");
-    println("  --console               Enable console output.");
+    println!("  --console               Enable console output.");
     println!("  --port port             Have the statsd server listen on this \
 UDP port. Defaults to {}.", DEFAULT_UDP_PORT);
     println!("  --admin-port port       Have the admin server listen on this \
@@ -141,7 +141,7 @@ fn main() {
     let matches = match getopts(args.tail(), opts) {
         Ok(m) => { m },
         Err(f) => {
-            println(f.to_err_msg());
+            println!("{}", f.to_err_msg());
             return print_usage();
         }
     };

@@ -9,12 +9,11 @@ use statsd::server::backends::graphite::Graphite;
 use statsd::server::buckets::Buckets;
 
 use std::from_str::FromStr;
-use std::io::Timer;
-use std::io::buffered;
-use std::io::net::ip::{Ipv4Addr, SocketAddr};
+use std::io;
+use std::io::{Timer, Listener, Acceptor};
 use std::io::net::{addrinfo, tcp};
+use std::io::net::ip::{Ipv4Addr, SocketAddr};
 use std::io::net::udp::UdpSocket;
-use std::io::{Listener, Acceptor};
 use std::option::{Some, None};
 use std::os;
 use std::comm::SharedChan;
@@ -42,7 +41,7 @@ enum Event {
 /// Run in a new task for each management connection made to the server.
 fn management_connection_loop(tcp_stream: ~tcp::TcpStream,
                               buckets_arc: MutexArc<Buckets>) {
-    let mut stream = buffered::BufferedStream::new(*tcp_stream);
+    let mut stream = io::BufferedStream::new(*tcp_stream);
 
     loop {
         // XXX: this will fail if non-utf8 characters are used

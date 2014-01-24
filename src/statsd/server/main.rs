@@ -256,7 +256,7 @@ fn main() {
 
             // UDP message received
             UdpMessage(buf) => buckets_arc.access(|buckets| {
-                str::from_utf8_opt(buf)
+                str::from_utf8(buf)
                     .and_then(|string| FromStr::from_str(string))
                     .map(|metric| buckets.add_metric(metric))
                     .or_else(|| { buckets.bad_messages += 1; None });

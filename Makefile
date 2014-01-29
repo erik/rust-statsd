@@ -1,19 +1,20 @@
 DOC_PATH=doc
 RUSTC=rustc
 
-build_cmd= rustc -Llib --out-dir $(BUILD_PATH)
-
 all:
-	rustpkg install statsd
+	rustc --lib src/statsd/lib.rs --out-dir .
+	rustc --bin src/statsd/server/main.rs -o statsd -L .
 
-check:
-	rustpkg test statsd
+check: all
+	rustc --test src/statsd/test.rs -L . -o test
+	./test
+	rm test
 
 doc:
 	rustdoc src/statsd/lib.rs
 
 clean:
-	rustpkg clean statsd
+	rm -f *.so statsd
 
 
 .PHONY: all check doc clean

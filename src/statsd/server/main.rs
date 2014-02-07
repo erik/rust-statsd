@@ -1,6 +1,7 @@
 extern mod std;
 extern mod extra;
 extern mod sync;
+extern mod getopts;
 
 extern mod statsd;
 
@@ -16,12 +17,13 @@ use std::io::net::{addrinfo, tcp};
 use std::io::net::ip::{Ipv4Addr, SocketAddr};
 use std::io::net::udp::UdpSocket;
 use std::option::{Some, None};
+use std::result::{Ok, Err};
 use std::os;
 use std::comm::SharedChan;
 use std::str;
 
-use sync::arc::MutexArc;
-use extra::getopts::{optopt, optflag, getopts};
+use sync::MutexArc;
+use getopts::{optopt, optflag, getopts};
 
 
 static FLUSH_INTERVAL_MS: u64 = 10000;
@@ -43,24 +45,22 @@ enum Event {
 fn management_connection_loop(tcp_stream: ~tcp::TcpStream,
                               buckets_arc: MutexArc<Buckets>) {
     let mut stream = io::BufferedStream::new(*tcp_stream);
+    let mut end_conn = false;
 
-    loop {
+    while !end_conn {
+
         // XXX: this will fail if non-utf8 characters are used
-        let end_conn = stream.read_line().map_or(false, |line| {
+        stream.read_line().map(|line| {
             buckets_arc.access(|buckets| {
-                let (resp, end_conn) = buckets.do_management_line(line);
+                let (resp, should_end) = buckets.do_management_line(line);
 
                 stream.write(resp.as_bytes());
                 stream.write(['\n' as u8]);
                 stream.flush();
 
-                end_conn
+                end_conn = should_end;
             })
         });
-
-        if end_conn {
-            break
-        }
     }
 }
 
@@ -110,7 +110,6 @@ fn udp_server_loop(chan: SharedChan<~Event>, port: u16) {
     }
 }
 
-
 fn print_usage() {
     println!("Usage: {} [options]", os::args()[0]);
     println!("  -h --help               Show usage information");
@@ -130,12 +129,12 @@ fn main() {
     let args = os::args();
 
     let opts = ~[
-        optflag("h"), optflag("help"),
-        optopt("graphite"),
-        optflag("console"),
-        optopt("port"),
-        optopt("admin-port"),
-        optopt("flush")
+        optflag("h", "help", "Show usage information"),
+        optopt("", "graphite", "Enable Graphite backend", "host[:port]"),
+        optflag("", "console", "Enable Console output"),
+        optopt("", "port", "UDP port for statsd to server listen on", "PORT"),
+        optopt("", "admin-port", "TCP port to have admin server listen on", "PORT"),
+        optopt("", "flush", "Flush interval, in seconds.", "SECONDS")
     ];
 
     let matches = match getopts(args.tail(), opts) {
@@ -171,7 +170,7 @@ fn main() {
         };
 
         let addr = match addrinfo::get_host_addresses(host) {
-            Some(ref addrs) if addrs.len() > 0 => addrs[0],
+            Ok(ref addrs) if addrs.len() > 0 => addrs[0],
             _ => {
                 println!("Bad host name {}", host);
                 return;

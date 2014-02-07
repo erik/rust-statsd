@@ -2,8 +2,8 @@ DOC_PATH=doc
 RUSTC=rustc
 
 all:
-	rustc --lib src/statsd/lib.rs --out-dir .
-	rustc --bin src/statsd/server/main.rs -o statsd -L .
+	rustc src/statsd/lib.rs --out-dir .
+	rustc src/statsd/server/main.rs -o statsd -L .
 
 check: all
 	rustc --test src/statsd/test.rs -L . -o test

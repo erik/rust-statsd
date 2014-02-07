@@ -1,7 +1,6 @@
 extern mod std;
 extern mod extra;
 extern mod sync;
-extern mod getopts;
 
 extern mod statsd;
 
@@ -22,7 +21,7 @@ use std::comm::SharedChan;
 use std::str;
 
 use sync::arc::MutexArc;
-use getopts::{optopt, optflag, getopts};
+use extra::getopts::{optopt, optflag, getopts};
 
 
 static FLUSH_INTERVAL_MS: u64 = 10000;

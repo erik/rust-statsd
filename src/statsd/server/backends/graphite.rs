@@ -5,7 +5,7 @@ use server::buckets::Buckets;
 
 use std::io::net::ip::SocketAddr;
 use std::io::net::tcp::TcpStream;
-use std::fmt::Default;
+use std::fmt;
 use std::hashmap::HashMap;
 
 use extra::time;
@@ -41,7 +41,7 @@ impl Graphite {
         }
     }
 
-    fn fmt_line<T: Default>(&mut self, key: &str, value: T, time: i64) -> ~str {
+    fn fmt_line<T: fmt::Show>(&mut self, key: &str, value: T, time: i64) -> ~str {
         format!("{}{} {} {}\n", self.prefix, key, value, time)
     }
 }

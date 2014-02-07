@@ -14,7 +14,7 @@ pub enum MetricKind {
 }
 
 
-impl fmt::Default for MetricKind {
+impl fmt::Show for MetricKind {
     fn fmt(k: &MetricKind, f: &mut fmt::Formatter) {
         match *k {
             Gauge      => write!(f.buf, "Gauge"),
@@ -35,7 +35,7 @@ pub struct Metric {
 }
 
 
-impl fmt::Default for Metric {
+impl fmt::Show for Metric {
     fn fmt(m: &Metric, f: &mut fmt::Formatter) {
         write!(f.buf, "{}({}) => {}", m.name, m.kind, m.value)
     }

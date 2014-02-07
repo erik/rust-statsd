@@ -4,7 +4,7 @@
 use server::backend::Backend;
 use server::buckets::Buckets;
 
-use std::fmt::Default;
+use std::fmt;
 use std::hashmap::HashMap;
 
 use extra::time;
@@ -25,7 +25,7 @@ impl Console {
         }
     }
 
-    fn fmt_line<T: Default>(&mut self, key: &str, value: T) {
+    fn fmt_line<T: fmt::Show>(&mut self, key: &str, value: T) {
         println!("    {}: {}", key, value)
     }
 }

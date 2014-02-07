@@ -5,7 +5,6 @@ use server::buckets::Buckets;
 
 use std::io::net::ip::SocketAddr;
 use std::io::net::tcp::TcpStream;
-use std::io::io_error;
 use std::fmt::Default;
 use std::hashmap::HashMap;
 
@@ -110,11 +109,9 @@ impl Backend for Graphite {
         self.last_flush_time = end_time;
 
         // Try to send the data to our Graphite instance, ignoring failures.
-        io_error::cond.trap(|_| ()).inside (|| {
-            TcpStream::connect(self.host).map(|ref mut stream| {
-                stream.write(str_buf.as_bytes());
-                stream.flush();
-            });
+        TcpStream::connect(self.host).map(|ref mut stream| {
+            stream.write(str_buf.as_bytes());
+            stream.flush();
         });
     }
 }

@@ -109,9 +109,9 @@ impl Backend for Graphite {
         self.last_flush_time = end_time;
 
         // Try to send the data to our Graphite instance, ignoring failures.
-        TcpStream::connect(self.host).map(|ref mut stream| {
-            stream.write(str_buf.as_bytes());
-            stream.flush();
+        let _ = TcpStream::connect(self.host).map(|ref mut stream| {
+            let _ = stream.write(str_buf.as_bytes());
+            let _ = stream.flush();
         });
     }
 }

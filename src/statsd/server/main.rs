@@ -50,13 +50,14 @@ fn management_connection_loop(tcp_stream: ~tcp::TcpStream,
     while !end_conn {
 
         // XXX: this will fail if non-utf8 characters are used
-        stream.read_line().map(|line| {
+        let _ = stream.read_line().map(|line| {
             buckets_arc.access(|buckets| {
                 let (resp, should_end) = buckets.do_management_line(line);
 
-                stream.write(resp.as_bytes());
-                stream.write(['\n' as u8]);
-                stream.flush();
+                // TODO: Maybe don't throw away write errors?
+                let _ = stream.write(resp.as_bytes());
+                let _ = stream.write(['\n' as u8]);
+                let _ = stream.flush();
 
                 end_conn = should_end;
             })
@@ -83,7 +84,7 @@ fn management_server_loop(chan: SharedChan<~Event>, port: u16) {
     let mut acceptor = listener.listen();
 
     for stream in acceptor.incoming() {
-        stream.map(|stream| {
+        let _ = stream.map(|stream| {
             chan.send(~TcpMessage(~stream));
         });
     }
@@ -97,7 +98,8 @@ fn udp_server_loop(chan: SharedChan<~Event>, port: u16) {
     let mut buf = [0u8, ..MAX_PACKET_SIZE];
 
     loop {
-        socket.recvfrom(buf).map(|(nread, _)| {
+        // TODO: Should handle errors here
+        let _ = socket.recvfrom(buf).map(|(nread, _)| {
             // Messages this large probably are bad in some way.
             if nread == MAX_PACKET_SIZE {
                 warn!("Max packet size exceeded.");

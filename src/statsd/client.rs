@@ -88,7 +88,9 @@ impl Client {
 
     /// Data goes in, data comes out.
     fn send(&mut self, data: &str) {
-        self.sock.sendto(data.as_bytes(), self.dest);
+        // TODO: Currently just ignoring send errors, should other behavior be
+        //       used?
+        let _ = self.sock.sendto(data.as_bytes(), self.dest);
     }
 
     /// Data goes in, data comes out. With a defined probability.

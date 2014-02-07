@@ -1,8 +1,6 @@
-src/main
 .rust/
-bin/
-build/
-lib/
 *.so
-venv
+*.rlib
+venv/
 doc/
+statsd

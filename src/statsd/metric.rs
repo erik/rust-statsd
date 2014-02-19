@@ -1,6 +1,6 @@
 use std::fmt;
 use std::from_str::FromStr;
-use std::num;
+use std::cmp;
 use std::option::{Option, Some, None};
 
 
@@ -74,7 +74,7 @@ impl FromStr for Metric {
             None => return None
         };
 
-        let end_idx = num::min(idx + 3, line.len());
+        let end_idx = cmp::min(idx + 3, line.len());
 
         let kind = match line.slice(idx, end_idx) {
             "c" => Counter(1.0),

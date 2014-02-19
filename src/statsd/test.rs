@@ -1,4 +1,4 @@
-extern mod statsd;
+extern crate statsd;
 
 
 #[cfg(test)]

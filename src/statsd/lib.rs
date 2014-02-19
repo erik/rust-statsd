@@ -13,7 +13,7 @@ this.
 #[crate_type = "lib"];
 #[crate_id = "statsd#0.0.0"];
 
-extern mod extra;
+extern crate extra;
 
 pub mod metric;
 

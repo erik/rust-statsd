@@ -1,9 +1,9 @@
-extern mod std;
-extern mod extra;
-extern mod sync;
-extern mod getopts;
+extern crate std;
+extern crate extra;
+extern crate sync;
+extern crate getopts;
 
-extern mod statsd;
+extern crate statsd;
 
 use statsd::server::backend::Backend;
 use statsd::server::backends::console::Console;

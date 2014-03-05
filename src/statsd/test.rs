@@ -6,6 +6,8 @@ mod metric {
     use statsd::metric;
     use statsd::metric::Metric;
 
+    use std::from_str::FromStr;
+
     #[test]
     fn test_from_str_valid_input() {
         let in_out_map = ~[

@@ -5,9 +5,10 @@ use server::backend::Backend;
 use server::buckets::Buckets;
 
 use std::fmt;
-use std::hashmap::HashMap;
 
-use extra::time;
+use collections::hashmap::HashMap;
+use time;
+
 use extra::stats::Stats;
 
 

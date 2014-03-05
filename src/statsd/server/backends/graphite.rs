@@ -6,9 +6,11 @@ use server::buckets::Buckets;
 use std::io::net::ip::SocketAddr;
 use std::io::net::tcp::TcpStream;
 use std::fmt;
-use std::hashmap::HashMap;
 
-use extra::time;
+use collections::hashmap::HashMap;
+
+use time;
+
 use extra::stats::Stats;
 
 

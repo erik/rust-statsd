@@ -3,7 +3,7 @@ use std::io::net::ip::SocketAddr;
 use std::io::net::udp::UdpSocket;
 use std::rand::random;
 
-use extra::time;
+use time;
 
 
 /** Simple interface to a statsd host.

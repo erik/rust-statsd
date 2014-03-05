@@ -13,7 +13,8 @@ this.
 #[crate_type = "lib"];
 #[crate_id = "statsd#0.0.0"];
 
-extern crate extra;
+extern crate time;
+extern crate collections;
 
 pub mod metric;
 

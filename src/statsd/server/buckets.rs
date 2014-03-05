@@ -1,8 +1,8 @@
 use metric;
 
-use std::hashmap::HashMap;
+use collections::hashmap::HashMap;
 
-use extra::time;
+use time;
 
 
 /// Buckets are the main storage of the statsd server. Each bucket is a simple

@@ -4,6 +4,7 @@ extern crate sync;
 extern crate getopts;
 extern crate time;
 extern crate collections;
+extern crate extra;
 
 extern crate statsd;
 

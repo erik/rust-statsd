@@ -22,7 +22,7 @@ use std::io::net::udp::UdpSocket;
 use std::option::{Some, None};
 use std::result::{Ok, Err};
 use std::os;
-use std::comm::Chan;
+use std::comm;
 use std::str;
 
 use sync::MutexArc;
@@ -69,7 +69,7 @@ fn management_connection_loop(tcp_stream: ~tcp::TcpStream,
 }
 
 
-fn flush_timer_loop(chan: Chan<~Event>, int_ms: u64) {
+fn flush_timer_loop(chan: comm::Receiver<~Event>, int_ms: u64) {
     let mut timer = Timer::new().unwrap();
     let periodic = timer.periodic(int_ms);
 
@@ -81,7 +81,7 @@ fn flush_timer_loop(chan: Chan<~Event>, int_ms: u64) {
 
 
 /// Accept incoming TCP connection to the statsd management port.
-fn management_server_loop(chan: Chan<~Event>, port: u16) {
+fn management_server_loop(chan: comm::Receiver<~Event>, port: u16) {
     let addr = SocketAddr { ip: Ipv4Addr(0, 0, 0, 0), port: port };
     let listener = tcp::TcpListener::bind(addr).unwrap();
     let mut acceptor = listener.listen();
@@ -95,7 +95,7 @@ fn management_server_loop(chan: Chan<~Event>, port: u16) {
 
 
 /// Accept incoming UDP data from statsd clients.
-fn udp_server_loop(chan: Chan<~Event>, port: u16) {
+fn udp_server_loop(chan: comm::Receiver<~Event>, port: u16) {
     let addr = SocketAddr { ip: Ipv4Addr(0, 0, 0, 0), port: port };
     let mut socket = UdpSocket::bind(addr).unwrap();
     let mut buf = [0u8, ..MAX_PACKET_SIZE];
@@ -225,7 +225,7 @@ fn main() {
         None => FLUSH_INTERVAL_MS
     };
 
-    let (event_port, event_chan) = Chan::<~Event>::new();
+    let (event_port, event_chan) = comm::channel<~Event>();
 
     let flush_chan = event_chan.clone();
     let mgmt_chan = event_chan.clone();

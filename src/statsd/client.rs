@@ -1,7 +1,7 @@
 use std::from_str::FromStr;
 use std::io::net::ip::SocketAddr;
 use std::io::net::udp::UdpSocket;
-use std::rand::random;
+use rand::random;
 
 use time;
 

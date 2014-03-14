@@ -16,6 +16,7 @@ this.
 extern crate extra;
 extern crate time;
 extern crate collections;
+extern crate rand;
 
 pub mod metric;
 

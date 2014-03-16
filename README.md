@@ -7,8 +7,12 @@ Run `make` to build the server/client. The server can be run with
 `./bin/statsd`, the client library is available in
 `./lib/<arch>/libstatsd-...so`.
 
-**Note**: everything is in progress. It works, but things are bound to
-  change. Feedback welcome.
+**Note**: I wrote this in November 2013, and have been updating since to keep
+everything working on nightly builds of rust. As such, some of the code uses
+outdated idioms or workarounds for language shortcomings that no longer
+exist. In other words, the code is bound to be terrible.
+
+Feedback is welcome.
 
 Client
 ------

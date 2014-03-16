@@ -11,7 +11,7 @@ use collections::hashmap::HashMap;
 
 use time;
 
-use extra::stats::Stats;
+use test::stats::Stats;
 
 
 pub struct Graphite {

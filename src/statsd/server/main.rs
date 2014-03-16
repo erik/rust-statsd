@@ -1,10 +1,9 @@
 extern crate std;
-extern crate extra;
+extern crate test;
 extern crate sync;
 extern crate getopts;
 extern crate time;
 extern crate collections;
-extern crate extra;
 
 extern crate statsd;
 
@@ -69,7 +68,7 @@ fn management_connection_loop(tcp_stream: ~tcp::TcpStream,
 }
 
 
-fn flush_timer_loop(chan: comm::Receiver<~Event>, int_ms: u64) {
+fn flush_timer_loop(chan: comm::Sender<~Event>, int_ms: u64) {
     let mut timer = Timer::new().unwrap();
     let periodic = timer.periodic(int_ms);
 
@@ -81,7 +80,7 @@ fn flush_timer_loop(chan: comm::Receiver<~Event>, int_ms: u64) {
 
 
 /// Accept incoming TCP connection to the statsd management port.
-fn management_server_loop(chan: comm::Receiver<~Event>, port: u16) {
+fn management_server_loop(chan: comm::Sender<~Event>, port: u16) {
     let addr = SocketAddr { ip: Ipv4Addr(0, 0, 0, 0), port: port };
     let listener = tcp::TcpListener::bind(addr).unwrap();
     let mut acceptor = listener.listen();
@@ -95,7 +94,7 @@ fn management_server_loop(chan: comm::Receiver<~Event>, port: u16) {
 
 
 /// Accept incoming UDP data from statsd clients.
-fn udp_server_loop(chan: comm::Receiver<~Event>, port: u16) {
+fn udp_server_loop(chan: comm::Sender<~Event>, port: u16) {
     let addr = SocketAddr { ip: Ipv4Addr(0, 0, 0, 0), port: port };
     let mut socket = UdpSocket::bind(addr).unwrap();
     let mut buf = [0u8, ..MAX_PACKET_SIZE];
@@ -225,22 +224,22 @@ fn main() {
         None => FLUSH_INTERVAL_MS
     };
 
-    let (event_port, event_chan) = comm::channel<~Event>();
+    let (event_send, event_recv) = comm::channel::<~Event>();
 
-    let flush_chan = event_chan.clone();
-    let mgmt_chan = event_chan.clone();
-    let udp_chan = event_chan.clone();
+    let flush_send = event_send.clone();
+    let mgmt_send = event_send.clone();
+    let udp_send = event_send.clone();
 
-    spawn(proc() { flush_timer_loop(flush_chan, flush_interval) });
-    spawn(proc() { management_server_loop(mgmt_chan, tcp_port) });
-    spawn(proc() { udp_server_loop(udp_chan, udp_port) });
+    spawn(proc() { flush_timer_loop(flush_send, flush_interval) });
+    spawn(proc() { management_server_loop(mgmt_send, tcp_port) });
+    spawn(proc() { udp_server_loop(udp_send, udp_port) });
 
     let buckets = Buckets::new();
     let buckets_arc = MutexArc::new(buckets);
 
     // Main event loop.
     loop {
-        match *event_port.recv() {
+        match *event_recv.recv() {
             // Flush timeout
             FlushTimer => buckets_arc.access(|buckets| {
                 for ref mut backend in backends.mut_iter() {

@@ -1,3 +1,6 @@
+#![feature(phase)]
+#[phase(syntax, link)]
+extern crate log;
 extern crate std;
 extern crate test;
 extern crate sync;
@@ -118,7 +121,7 @@ fn print_usage() {
     println!("Usage: {} [options]", os::args()[0]);
     println!("  -h --help               Show usage information");
     println!("  --graphite host[:port]  Enable the graphite backend. \
-Port will default to 2003 if not specified.");
+Receiver will default to 2003 if not specified.");
     println!("  --console               Enable console output.");
     println!("  --port port             Have the statsd server listen on this \
 UDP port. Defaults to {}.", DEFAULT_UDP_PORT);

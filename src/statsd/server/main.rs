@@ -24,7 +24,7 @@ use std::os;
 use std::comm;
 use std::str;
 
-use sync::MutexArc;
+use sync::{Mutex, Arc};
 use getopts::{optopt, optflag, getopts};
 
 
@@ -45,7 +45,7 @@ enum Event {
 
 /// Run in a new task for each management connection made to the server.
 fn management_connection_loop(tcp_stream: ~tcp::TcpStream,
-                              buckets_arc: MutexArc<Buckets>) {
+                              buckets_arc: Arc<Mutex<Buckets>>) {
     let mut stream = io::BufferedStream::new(*tcp_stream);
     let mut end_conn = false;
 
@@ -53,16 +53,15 @@ fn management_connection_loop(tcp_stream: ~tcp::TcpStream,
 
         // XXX: this will fail if non-utf8 characters are used
         let _ = stream.read_line().map(|line| {
-            buckets_arc.access(|buckets| {
-                let (resp, should_end) = buckets.do_management_line(line);
+            let mut buckets = buckets_arc.lock();
+            let (resp, should_end) = buckets.do_management_line(line);
 
-                // TODO: Maybe don't throw away write errors?
-                let _ = stream.write(resp.as_bytes());
-                let _ = stream.write(['\n' as u8]);
-                let _ = stream.flush();
+            // TODO: Maybe don't throw away write errors?
+            let _ = stream.write(resp.as_bytes());
+            let _ = stream.write(['\n' as u8]);
+            let _ = stream.flush();
 
-                end_conn = should_end;
-            })
+            end_conn = should_end;
         });
     }
 }
@@ -104,7 +103,7 @@ fn udp_server_loop(chan: comm::Sender<~Event>, port: u16) {
         let _ = socket.recvfrom(buf).map(|(nread, _)| {
             // Messages this large probably are bad in some way.
             if nread == MAX_PACKET_SIZE {
-                warn!("Max packet size exceeded.");
+                println!("Max packet size exceeded.");
             }
 
             // Use the slice to strip out trailing \0 characters
@@ -183,12 +182,12 @@ fn main() {
 
         let backend = Graphite::new(SocketAddr{ip: addr, port: port});
         backends.push(box backend as ~Backend);
-        info!("Using graphite backend ({}:{}).", host, port);
+        println!("Using graphite backend ({}:{}).", host, port);
     }
 
     if matches.opt_present("console") {
         backends.push(box Console::new() as ~Backend);
-        info!("Using console backend.");
+        println!("Using console backend.");
     }
 
     let udp_port = match matches.opt_str("port") {
@@ -235,19 +234,21 @@ fn main() {
     spawn(proc() { udp_server_loop(udp_send, udp_port) });
 
     let buckets = Buckets::new();
-    let buckets_arc = MutexArc::new(buckets);
+    let buckets_arc = Arc::new(Mutex::new(buckets));
 
     // Main event loop.
     loop {
         match *event_recv.recv() {
             // Flush timeout
-            FlushTimer => buckets_arc.access(|buckets| {
+            FlushTimer => {
+                let mut buckets = buckets_arc.lock();
+
                 for ref mut backend in backends.mut_iter() {
-                    backend.flush_buckets(buckets);
+                    backend.flush_buckets(&*buckets);
                 }
 
                 buckets.flush();
-            }),
+            },
 
             // Management server
             TcpMessage(s) => {
@@ -259,12 +260,13 @@ fn main() {
             },
 
             // UDP message received
-            UdpMessage(buf) => buckets_arc.access(|buckets| {
+            UdpMessage(buf) => {
+                let mut buckets = buckets_arc.lock();
                 str::from_utf8(buf)
                     .and_then(|string| FromStr::from_str(string))
                     .map(|metric| buckets.add_metric(metric))
                     .or_else(|| { buckets.bad_messages += 1; None });
-            }),
+            }
         }
     }
 }

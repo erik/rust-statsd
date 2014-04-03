@@ -29,9 +29,9 @@ impl fmt::Show for MetricKind {
 /// Internal represenation of a line sent by a statsd client.
 #[deriving(Eq)]
 pub struct Metric {
-    kind: MetricKind,
-    name: ~str,
-    value: f64
+    pub kind: MetricKind,
+    pub name: ~str,
+    pub value: f64
 }
 
 

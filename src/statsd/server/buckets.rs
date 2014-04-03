@@ -11,15 +11,15 @@ use time;
 ///
 /// The buckets are cleared out on every flush event.
 pub struct Buckets {
-    counters:   HashMap<~str, f64>,
-    gauges:     HashMap<~str, f64>,
-    histograms: HashMap<~str, ~[f64]>,
-    timers:     HashMap<~str, ~[f64]>,
+    pub counters:   HashMap<~str, f64>,
+    pub gauges:     HashMap<~str, f64>,
+    pub histograms: HashMap<~str, ~[f64]>,
+    pub timers:     HashMap<~str, ~[f64]>,
 
-    server_start_time: time::Timespec,
-    last_message: time::Timespec,
-    bad_messages: uint,
-    total_messages: uint
+    pub server_start_time: time::Timespec,
+    pub last_message: time::Timespec,
+    pub bad_messages: uint,
+    pub total_messages: uint
 }
 
 

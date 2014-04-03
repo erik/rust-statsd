@@ -14,8 +14,8 @@ data and timing a function call). Most work is handled by the server.
 **TODO**: allow prefixing keys.
 */
 pub struct Client {
-    priv dest: SocketAddr,
-    priv sock: UdpSocket
+    dest: SocketAddr,
+    sock: UdpSocket
 }
 
 
